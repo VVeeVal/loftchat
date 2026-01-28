@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean?
+  image         String?
+  bio           String?   // New: User bio
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  
+  // App specific
+  createdChannels Channel[]
+  memberships     ChannelMember[]
+  messages        Message[]
+  dmParticipants  DMParticipant[]
+  dmMessages      DMMessage[] @relation("Sender")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id           String    @id
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  password     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// --- Application Models ---
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  createdBy   String 
+  creator     User     @relation(fields: [createdBy], references: [id])
+  
+  members     ChannelMember[]
+  messages    Message[]
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  role      String   @default("MEMBER") // ADMIN, MEMBER
+  joinedAt  DateTime @default(now())
+  lastReadAt DateTime @default(now()) // New: Unread tracking
+  
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isStarred Boolean  @default(false)
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  channelId String
+  senderId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Threading
+  threadId    String?
+  parent      Message?  @relation("Thread", fields: [threadId], references: [id])
+  replies     Message[] @relation("Thread")
+  replyCount  Int       @default(0)
+
+  channel     Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender      User      @relation(fields: [senderId], references: [id])
+
+  @@index([channelId, createdAt])
+  @@index([threadId])
+}
+
+model DMSession {
+  id        String          @id @default(cuid())
+  createdAt DateTime        @default(now())
+  
+  participants DMParticipant[]
+  messages     DMMessage[]
+}
+
+model DMParticipant {
+  id          String    @id @default(cuid())
+  sessionId   String
+  userId      String
+  lastReadAt  DateTime  @default(now()) // New: Unread tracking
+  
+  session     DMSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isStarred   Boolean   @default(false)
+
+  @@unique([sessionId, userId])
+}
+
+model DMMessage {
+  id        String   @id @default(cuid())
+  content   String
+  sessionId String
+  senderId  String
+  createdAt DateTime @default(now())
+  
+  // Threading (New)
+  threadId    String?
+  parent      DMMessage?  @relation("DMThread", fields: [threadId], references: [id])
+  replies     DMMessage[] @relation("DMThread")
+  replyCount  Int       @default(0)
+
+  session   DMSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    User      @relation("Sender", fields: [senderId], references: [id])
+
+  @@index([sessionId, createdAt])
+  @@index([threadId])
+}

@@ -1,0 +1,310 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Loft Aether Canvas Theme - Light Mode */
+    --background: 200 60% 98%; /* Soft sky-tinted white */
+    --foreground: 220 20% 20%; /* Deep slate for readability */
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 20%;
+
+    /* Primary - Teal/Mint accent (Mintlify-inspired) */
+    --primary: 168 70% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Soft lavender */
+    --secondary: 270 50% 96%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 220 10% 50%;
+
+    /* Accent - Sky blue */
+    --accent: 195 80% 94%;
+    --accent-foreground: 220 20% 20%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 90%;
+    --input: 220 20% 90%;
+    --ring: 168 70% 42%;
+
+    --radius: 0.75rem;
+
+    /* Loft Brand Colors */
+    --loft-sky: 195 100% 94%;
+    --loft-lavender: 270 100% 96%;
+    --loft-peach: 35 100% 95%;
+    --loft-mint: 168 70% 42%;
+    --loft-mint-light: 168 60% 90%;
+    --loft-glow: 50 100% 80%;
+    --loft-cloud: 0 0% 100%;
+
+    /* Sidebar - Light airy design */
+    --sidebar-bg: 200 40% 98%;
+    --sidebar-border: 200 30% 90%;
+    --sidebar-text: 220 20% 30%;
+    --sidebar-text-muted: 220 10% 55%;
+    --sidebar-hover: 168 50% 95%;
+    --sidebar-active: 168 70% 42%;
+    --sidebar-active-text: 0 0% 100%;
+
+    /* Chart colors */
+    --chart-1: 168 70% 42%;
+    --chart-2: 195 80% 50%;
+    --chart-3: 270 50% 60%;
+    --chart-4: 35 80% 55%;
+    --chart-5: 330 70% 55%;
+  }
+
+  .dark {
+    /* Loft Aether Canvas Theme - Dark Mode */
+    --background: 220 25% 10%;
+    --foreground: 210 40% 98%;
+
+    --card: 220 25% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 220 25% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary - Teal/Mint accent */
+    --primary: 168 60% 50%;
+    --primary-foreground: 220 25% 10%;
+
+    /* Secondary */
+    --secondary: 220 25% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 25% 18%;
+    --muted-foreground: 220 20% 65%;
+
+    /* Accent */
+    --accent: 220 25% 18%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 25% 20%;
+    --input: 220 25% 20%;
+    --ring: 168 60% 50%;
+
+    /* Loft Brand Colors - Dark variants */
+    --loft-sky: 200 30% 20%;
+    --loft-lavender: 270 30% 20%;
+    --loft-peach: 35 30% 20%;
+    --loft-mint: 168 60% 50%;
+    --loft-mint-light: 168 40% 25%;
+    --loft-glow: 50 60% 40%;
+    --loft-cloud: 220 25% 15%;
+
+    /* Sidebar - Dark mode */
+    --sidebar-bg: 220 25% 8%;
+    --sidebar-border: 220 25% 15%;
+    --sidebar-text: 210 30% 90%;
+    --sidebar-text-muted: 220 15% 55%;
+    --sidebar-hover: 168 40% 15%;
+    --sidebar-active: 168 60% 50%;
+    --sidebar-active-text: 220 25% 10%;
+
+    /* Chart colors - Dark mode */
+    --chart-1: 168 60% 50%;
+    --chart-2: 195 70% 45%;
+    --chart-3: 270 40% 55%;
+    --chart-4: 35 70% 50%;
+    --chart-5: 330 60% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Aether Canvas - Animated Background Styles */
+@layer components {
+  .aether-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      hsl(var(--loft-sky)) 0%,
+      hsl(var(--loft-lavender)) 50%,
+      hsl(var(--loft-peach)) 100%
+    );
+  }
+
+  .dark .aether-canvas {
+    background: linear-gradient(
+      180deg,
+      hsl(220 25% 8%) 0%,
+      hsl(220 25% 12%) 50%,
+      hsl(220 25% 10%) 100%
+    );
+  }
+
+  /* Floating cloud layers */
+  .cloud-layer {
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    background-repeat: repeat-x;
+    opacity: 0.6;
+  }
+
+  .cloud-layer-1 {
+    animation: drift-slow 120s linear infinite;
+  }
+
+  .cloud-layer-2 {
+    animation: drift-medium 90s linear infinite;
+    opacity: 0.4;
+  }
+
+  .cloud-layer-3 {
+    animation: drift-fast 60s linear infinite;
+    opacity: 0.3;
+  }
+
+  /* Floating orbs */
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(var(--loft-glow) / 0.6) 0%,
+      hsl(var(--loft-glow) / 0) 70%
+    );
+    animation: float-pulse 8s ease-in-out infinite;
+  }
+
+  .dark .floating-orb {
+    background: radial-gradient(
+      circle,
+      hsl(var(--loft-mint) / 0.3) 0%,
+      hsl(var(--loft-mint) / 0) 70%
+    );
+  }
+
+  /* Grain texture overlay */
+  .grain-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+}
+
+/* Keyframe animations */
+@keyframes drift-slow {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes drift-medium {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes drift-fast {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float-pulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Utility classes for the brand */
+@layer utilities {
+  .gradient-loft {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--loft-mint)) 0%,
+      hsl(168 70% 50%) 100%
+    );
+  }
+
+  .gradient-loft-subtle {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--loft-sky)) 0%,
+      hsl(var(--loft-lavender)) 50%,
+      hsl(var(--loft-peach)) 100%
+    );
+  }
+
+  .text-gradient-loft {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--loft-mint)) 0%,
+      hsl(195 80% 45%) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-loft {
+    box-shadow:
+      0 4px 6px -1px hsl(var(--loft-mint) / 0.1),
+      0 2px 4px -2px hsl(var(--loft-mint) / 0.1);
+  }
+
+  .shadow-loft-lg {
+    box-shadow:
+      0 10px 15px -3px hsl(var(--loft-mint) / 0.1),
+      0 4px 6px -4px hsl(var(--loft-mint) / 0.1);
+  }
+
+  .glow-loft {
+    box-shadow: 0 0 20px hsl(var(--loft-mint) / 0.3);
+  }
+
+  .animate-float {
+    animation: float-gentle 6s ease-in-out infinite;
+  }
+}

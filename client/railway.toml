@@ -1,0 +1,6 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "client/Dockerfile"
+
+[deploy]
+startCommand = "sh -c 'npm run dev -- --host 0.0.0.0 --port $PORT'"

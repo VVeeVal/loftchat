@@ -8,14 +8,17 @@ import { NotificationHandler } from "@/components/NotificationHandler";
 import { MobileSidebar } from "@/components/mobile/MobileSidebar";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { AetherCanvasSimple } from "@/components/AetherCanvas";
-import { LoftLogo } from "@/components/LoftLogo";
 
 function LoadingScreen() {
     return (
         <div className="relative flex h-screen items-center justify-center overflow-hidden">
             <AetherCanvasSimple />
             <div className="relative z-10 flex flex-col items-center gap-4 animate-fade-in">
-                <LoftLogo size="xl" />
+                <img
+                    src="/loft-logo-full.png"
+                    alt="Loft"
+                    className="h-14 w-auto sm:h-16"
+                />
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                     <span className="text-sm">Loading...</span>
@@ -31,7 +34,11 @@ function ErrorScreen({ message, description }: { message: string; description: s
             <AetherCanvasSimple />
             <div className="relative z-10 text-center animate-fade-in-up">
                 <div className="mb-4">
-                    <LoftLogo size="lg" />
+                    <img
+                        src="/loft-logo-full.png"
+                        alt="Loft"
+                        className="h-10 w-auto sm:h-12"
+                    />
                 </div>
                 <p className="text-destructive font-medium">{message}</p>
                 <p className="text-sm text-muted-foreground mt-1">{description}</p>

@@ -1,6 +1,5 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LoftLogo } from "@/components/LoftLogo";
 import { useMobile } from "@/contexts/MobileContext";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -23,7 +22,7 @@ export function MobileHeader() {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="ml-3 flex items-center">
-        <LoftLogo size="sm" />
+        <img src="/loft-logo-mark.png" alt="Loft" className="h-6 w-6" />
       </div>
     </div>
   );

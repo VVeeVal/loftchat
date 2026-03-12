@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "@/lib/api-client";
 import { AetherCanvas } from "@/components/AetherCanvas";
-import { LoftLogo } from "@/components/LoftLogo";
 import { Building2, Mail, Lock, User } from "lucide-react";
 
 export default function Onboarding() {
@@ -68,7 +67,11 @@ export default function Onboarding() {
                 <Card className="border-0 shadow-cloud-lg bg-white/80 dark:bg-card/80 backdrop-blur-xl">
                     <CardHeader className="space-y-4 pb-4">
                         <div className="flex justify-center">
-                            <LoftLogo size="xl" />
+                            <img
+                                src="/loft-logo-full.png"
+                                alt="Loft"
+                                className="h-12 w-auto sm:h-14"
+                            />
                         </div>
                         <div className="text-center space-y-2">
                             <h1 className="text-2xl font-semibold tracking-tight">

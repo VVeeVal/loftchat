@@ -7,7 +7,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, LogOut, Settings, User } from "lucide-react";
-import { LoftLogo } from "@/components/LoftLogo";
 import { resolveAssetUrl } from "@/lib/assets";
 
 interface SidebarHeaderProps {
@@ -26,7 +25,11 @@ export function SidebarHeader({ userName, userImage, isAdmin, onProfileClick, on
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2 hover:bg-sidebar-hover p-1.5 rounded-lg transition-colors group">
-                        <LoftLogo size="sm" showText={true} />
+                        <img
+                            src="/loft-logo-full.png"
+                            alt="Loft"
+                            className="h-6 w-auto max-w-[90px]"
+                        />
                         <ChevronDown className="h-4 w-4 text-sidebar-text-muted group-hover:text-sidebar-text transition-colors" />
                     </button>
                 </DropdownMenuTrigger>

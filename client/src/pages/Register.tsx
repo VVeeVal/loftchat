@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AetherCanvas } from "@/components/AetherCanvas";
-import { LoftLogo } from "@/components/LoftLogo";
 
 export default function Register() {
     const [name, setName] = useState("");
@@ -105,7 +104,11 @@ export default function Register() {
                 <Card className="border-0 shadow-cloud-lg bg-white/80 dark:bg-card/80 backdrop-blur-xl">
                     <CardHeader className="space-y-4 pb-4">
                         <div className="flex justify-center">
-                            <LoftLogo size="lg" />
+                            <img
+                                src="/loft-logo-no-bg.png"
+                                alt="Loft"
+                                className="h-10 w-auto sm:h-12"
+                            />
                         </div>
                         <div className="text-center space-y-1">
                             <h1 className="text-2xl font-semibold tracking-tight">

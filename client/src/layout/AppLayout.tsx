@@ -85,7 +85,9 @@ function AppLayoutContent() {
             <main className="flex-1 flex flex-col h-full overflow-hidden bg-white/50 dark:bg-background">
                 {/* Mobile Header with Hamburger */}
                 <MobileHeader />
-                <Outlet />
+                <div className="flex-1 min-h-0 overflow-hidden">
+                    <Outlet />
+                </div>
             </main>
         </div>
     );

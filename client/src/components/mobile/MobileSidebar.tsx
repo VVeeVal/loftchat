@@ -12,7 +12,11 @@ export function MobileSidebar() {
 
   return (
     <Sheet open={isSidebarOpen} onOpenChange={closeSidebar}>
-      <SheetContent side="left" className="w-[80vw] max-w-sm p-0">
+      <SheetContent
+        side="left"
+        className="w-[80vw] max-w-sm p-0"
+        closeClassName="left-3 right-auto top-3 z-20"
+      >
         <SidebarContent onNavigate={closeSidebar} />
       </SheetContent>
     </Sheet>

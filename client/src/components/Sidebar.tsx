@@ -200,8 +200,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
             <ScrollArea className="flex-1 mt-2">
                 <div className="space-y-1 pb-4">
-                    <ThreadsLink />
-                    <BookmarksLink />
+                    <ThreadsLink onNavigate={onNavigate} />
+                    <BookmarksLink onNavigate={onNavigate} />
 
                     <StarredSection
                         starredChannels={starredChannels}
@@ -209,12 +209,14 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                         currentUserId={currentUser?.id}
                         activeChannelId={channelId}
                         activeSessionId={sessionId}
+                        onNavigate={onNavigate}
                     />
 
                     <ChannelsSection
                         channels={activeChannels}
                         activeChannelId={channelId}
                         onAddChannel={() => setIsDialogOpen(true)}
+                        onNavigate={onNavigate}
                     />
 
                     <DMSection
@@ -222,6 +224,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                         currentUserId={currentUser?.id}
                         activeSessionId={sessionId}
                         onAddDM={() => setIsDMDialogOpen(true)}
+                        onNavigate={onNavigate}
                     />
 
                     {archivedChannels.length > 0 && (
@@ -229,6 +232,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                             channels={archivedChannels}
                             activeChannelId={channelId}
                             label="Archived Channels"
+                            onNavigate={onNavigate}
                         />
                     )}
 
@@ -238,6 +242,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                             currentUserId={currentUser?.id}
                             activeSessionId={sessionId}
                             label="Archived DMs"
+                            onNavigate={onNavigate}
                         />
                     )}
                 </div>
@@ -280,6 +285,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 isOpen={isSearchOpen}
                 onOpenChange={setIsSearchOpen}
                 currentUserId={currentUser?.id}
+                onNavigate={onNavigate}
             />
         </div>
     );

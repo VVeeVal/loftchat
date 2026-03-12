@@ -285,7 +285,7 @@ export default function MessageList({
                         </div>
 
                         {/* Action Buttons (Visible on Hover) */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity relative -top-2">
+                        <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity relative -top-2">
                             <MessageActions
                                 canEdit={msg.senderId === currentUserId}
                                 canDelete={msg.senderId === currentUserId}

@@ -121,8 +121,8 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[800px] max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-[800px] max-h-[90vh] overflow-y-auto px-3 py-4 sm:px-6 sm:py-6">
+                    <DialogHeader className="pr-10">
                         <DialogTitle>Workspace Settings</DialogTitle>
                         <DialogDescription className="sr-only">
                             Manage workspace registration links and users.
@@ -130,11 +130,11 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                     </DialogHeader>
 
                     <Tabs defaultValue="registration-links" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
-                            <TabsTrigger value="registration-links">Invites</TabsTrigger>
-                            <TabsTrigger value="user-management">Users</TabsTrigger>
-                            <TabsTrigger value="custom-emoji">Emoji</TabsTrigger>
-                            <TabsTrigger value="storage">Storage</TabsTrigger>
+                        <TabsList className="w-full justify-start overflow-x-auto whitespace-nowrap">
+                            <TabsTrigger className="shrink-0" value="registration-links">Invites</TabsTrigger>
+                            <TabsTrigger className="shrink-0" value="user-management">Users</TabsTrigger>
+                            <TabsTrigger className="shrink-0" value="custom-emoji">Emoji</TabsTrigger>
+                            <TabsTrigger className="shrink-0" value="storage">Storage</TabsTrigger>
                         </TabsList>
 
                         {/* Registration Links Tab */}
@@ -147,7 +147,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                     </p>
                                 </div>
                                 <form
-                                    className="flex flex-wrap items-end gap-2"
+                                    className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-end"
                                     onSubmit={(event) => {
                                         event.preventDefault();
                                         handleCreateLink();
@@ -158,7 +158,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                         placeholder="Validity in hours (optional)"
                                         value={expiresInHours}
                                         onChange={(e) => setExpiresInHours(e.target.value)}
-                                        className="max-w-[200px]"
+                                        className="w-full sm:max-w-[200px]"
                                     />
                                     <span className="text-xs text-gray-500">
                                         Entered number = link validity in hours.
@@ -177,7 +177,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                             placeholder="Max uses (leave blank for unlimited)"
                                             value={maxUses}
                                             onChange={(e) => setMaxUses(e.target.value)}
-                                            className="max-w-[220px]"
+                                            className="w-full sm:max-w-[220px]"
                                         />
                                     )}
                                     <Button
@@ -201,11 +201,11 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                             return (
                                                 <div
                                                     key={link.id}
-                                                    className="flex items-center gap-2 p-3 border rounded-md bg-gray-50 dark:bg-gray-900"
+                                                    className="flex flex-col gap-2 p-3 border rounded-md bg-gray-50 dark:bg-gray-900 sm:flex-row sm:items-center"
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded break-all">
+                                                            <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded break-all whitespace-normal w-full">
                                                                 {link.registrationUrl}
                                                             </code>
                                                         </div>
@@ -242,6 +242,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
+                                                        className="w-full sm:w-auto"
                                                         onClick={() => handleCopyLink(link.registrationUrl, link.id)}
                                                         disabled={isUsed || expired}
                                                     >

@@ -76,7 +76,18 @@ export function PinnedMessagesDialog({ channelId, sessionId, isOpen, onOpenChang
                                 </Button>
                             </div>
                             <Link
-                                to={channelId ? `/channels/${channelId}?messageId=${message.id}` : `/dms/${sessionId}?messageId=${message.id}`}
+                                to={(() => {
+                                    const params = new URLSearchParams();
+                                    params.set("messageId", message.id);
+                                    if (message.threadId) {
+                                        params.set("threadId", message.threadId);
+                                    }
+                                    const query = params.toString();
+                                    return channelId
+                                        ? `/channels/${channelId}?${query}`
+                                        : `/dms/${sessionId}?${query}`;
+                                })()}
+                                onClick={() => onOpenChange(false)}
                                 className="block text-sm text-gray-800 hover:underline"
                             >
                                 {message.content}

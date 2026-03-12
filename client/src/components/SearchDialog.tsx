@@ -26,9 +26,10 @@ interface SearchDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     currentUserId?: string;
+    onNavigate?: () => void;
 }
 
-export default function SearchDialog({ isOpen, onOpenChange, currentUserId }: SearchDialogProps) {
+export default function SearchDialog({ isOpen, onOpenChange, currentUserId, onNavigate }: SearchDialogProps) {
     const [query, setQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
     const [type, setType] = useState<"all" | "channels" | "users" | "messages">("all");
@@ -82,7 +83,10 @@ export default function SearchDialog({ isOpen, onOpenChange, currentUserId }: Se
         <Link
             key={channel.id}
             to={`/channels/${channel.id}`}
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+                onOpenChange(false);
+                onNavigate?.();
+            }}
             className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
         >
             <Hash className="h-4 w-4 text-gray-500" />
@@ -133,7 +137,10 @@ export default function SearchDialog({ isOpen, onOpenChange, currentUserId }: Se
             <Link
                 key={message.id}
                 to={href}
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                    onOpenChange(false);
+                    onNavigate?.();
+                }}
                 className="flex items-start gap-3 rounded-md px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
             >
                 <div className="mt-0.5">

@@ -174,7 +174,7 @@ export default function Chat() {
             )}>
                 {/* Header */}
                 <div
-                    className="h-14 border-b border-border/50 flex items-center px-2 sm:px-4 bg-white/80 dark:bg-card/80 backdrop-blur-sm z-10 flex-shrink-0 cursor-pointer hover:bg-white/90 dark:hover:bg-card/90 transition-colors"
+                    className="h-14 border-b border-border/50 flex items-center px-2 sm:px-4 bg-white/80 dark:bg-card/80 backdrop-blur-sm z-20 flex-shrink-0 cursor-pointer hover:bg-white/90 dark:hover:bg-card/90 transition-colors sticky top-0"
                     onClick={() => setIsDetailsOpen(true)}
                 >
                     <div className="flex items-center min-w-0 flex-1">
@@ -231,7 +231,10 @@ export default function Chat() {
                 </div>
 
                 {/* Input Area */}
-                <div className="p-2 sm:p-4 border-t border-border/50 bg-white/80 dark:bg-card/80 backdrop-blur-sm">
+                <div
+                    className="p-2 sm:p-4 border-t border-border/50 bg-white/80 dark:bg-card/80 backdrop-blur-sm sticky bottom-0 z-20"
+                    style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+                >
                     {typingLabel && (
                         <div className="mb-2 text-xs text-primary animate-pulse">{typingLabel}</div>
                     )}

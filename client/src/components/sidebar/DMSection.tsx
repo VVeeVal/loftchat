@@ -9,9 +9,10 @@ interface DMSectionProps {
     activeSessionId?: string;
     onAddDM?: () => void;
     label?: string;
+    onNavigate?: () => void;
 }
 
-export function DMSection({ dms, currentUserId, activeSessionId, onAddDM, label = "Direct Messages" }: DMSectionProps) {
+export function DMSection({ dms, currentUserId, activeSessionId, onAddDM, label = "Direct Messages", onNavigate }: DMSectionProps) {
     const sortedDms = [...(dms || [])].sort((a, b) => {
         const getLabel = (dm: any) => {
             const other = dm.participants.find((p: any) => p.userId !== currentUserId)?.user;
@@ -27,7 +28,7 @@ export function DMSection({ dms, currentUserId, activeSessionId, onAddDM, label 
                 const other = otherParticipant?.user;
                 const otherUserId = otherParticipant?.userId;
                 return (
-                    <Link key={dm.id} to={`/dms/${dm.id}`}>
+                    <Link key={dm.id} to={`/dms/${dm.id}`} onClick={onNavigate}>
                         <SidebarItem
                             icon={
                                 <div className="relative">
@@ -44,7 +45,7 @@ export function DMSection({ dms, currentUserId, activeSessionId, onAddDM, label 
                             label={other?.name || other?.email || "Unknown"}
                             isActive={activeSessionId === dm.id}
                             unreadCount={dm.unreadCount}
-                            onClick={() => { }}
+                            onClick={() => onNavigate?.()}
                         />
                     </Link>
                 );

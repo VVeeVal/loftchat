@@ -209,7 +209,11 @@ export default function ThreadPanel({
     if (isMobile) {
         return (
             <Sheet open={true} onOpenChange={onClose}>
-                <SheetContent side="right" className="w-full p-0 sm:max-w-full bg-gray-50 dark:bg-background">
+                <SheetContent
+                    side="right"
+                    className="w-full p-0 sm:max-w-full bg-gray-50 dark:bg-background"
+                    showClose={false}
+                >
                     {panelContent}
                 </SheetContent>
             </Sheet>

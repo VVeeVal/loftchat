@@ -54,6 +54,7 @@ Railway deployments are split into **separate services** (backend, frontend, and
   - `BETTER_AUTH_SECRET`
   - `BETTER_AUTH_URL`
   - `FRONTEND_URL`
+  - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` if enabling Google OAuth
   - Storage vars if using S3/MinIO (didn't test this, let me know if it works)
 
 **2) Create a Railway project + Postgres**
@@ -79,6 +80,8 @@ Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client
 | `BETTER_AUTH_SECRET` | Secret for JWT signing | Required |
 | `BETTER_AUTH_URL` | Backend URL for auth callbacks | Required |
 | `FRONTEND_URL` | Frontend URL for CORS and links | Required |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Optional |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Optional |
 | `UPLOAD_DIR` | Local upload directory | `uploads` |
 | `STORAGE_BACKEND` | `local`, `s3`, or `minio` | `local` |
 | `STORAGE_BUCKET`, `STORAGE_REGION`, etc. | S3 configuration | Optional |
@@ -91,6 +94,19 @@ Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VITE_API_URL` | Backend API URL | `http://localhost:4000` |
+
+### Google OAuth Setup
+
+Google OAuth is optional. To enable it:
+
+1. Create a Google OAuth Web application.
+2. Set the authorized JavaScript origin to your frontend URL, for example `https://app.loftchat.com`.
+3. Set the authorized redirect URI to your backend auth callback:
+   - Production example: `https://api.loftchat.com/api/auth/callback/google`
+   - Local example: `http://localhost:4000/api/auth/callback/google`
+4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the backend environment.
+
+The first workspace bootstrap remains email/password only. Google OAuth is available for normal sign-in and invite-based sign-up.
 
 ---
 
@@ -135,4 +151,3 @@ loft-open-source/
 ## License
 
 AGPL-3.0. See `LICENSE`.
-

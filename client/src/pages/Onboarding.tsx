@@ -68,9 +68,9 @@ export default function Onboarding() {
                     <CardHeader className="space-y-4 pb-4">
                         <div className="flex justify-center">
                             <img
-                                src="/loft-logo-full.png"
+                                src="/loft-logo-no-bg.png"
                                 alt="Loft"
-                                className="h-12 w-auto sm:h-14"
+                                className="h-24 w-auto sm:h-28"
                             />
                         </div>
                         <div className="text-center space-y-2">

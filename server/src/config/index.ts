@@ -9,6 +9,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(1),
   BETTER_AUTH_URL: z.string().url(),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   FRONTEND_URL: z.string().url().optional(),
   UPLOAD_DIR: z.string().default('uploads'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().int().positive().default(25),
@@ -49,6 +51,8 @@ export const config = {
   databaseUrl: data.DATABASE_URL,
   betterAuthSecret: data.BETTER_AUTH_SECRET,
   betterAuthUrl: data.BETTER_AUTH_URL,
+  googleClientId: data.GOOGLE_CLIENT_ID,
+  googleClientSecret: data.GOOGLE_CLIENT_SECRET,
   frontendUrl,
   uploadDir: data.UPLOAD_DIR,
   maxUploadSizeBytes: data.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
@@ -72,5 +76,6 @@ export const config = {
   orgStorageQuotaBytes: data.ORG_STORAGE_QUOTA_MB * 1024 * 1024,
   userStorageQuotaBytes: data.USER_STORAGE_QUOTA_MB * 1024 * 1024,
   orphanUploadTtlMs: data.ORPHAN_UPLOAD_TTL_HOURS * 60 * 60 * 1000,
+  googleOAuthEnabled: Boolean(data.GOOGLE_CLIENT_ID && data.GOOGLE_CLIENT_SECRET),
   isProduction: data.NODE_ENV === 'production'
 };

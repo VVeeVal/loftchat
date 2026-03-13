@@ -12,6 +12,7 @@ import { convertFastifyHeaders } from './utils.js';
 import { config } from './config/index.js';
 import errorHandler from './plugins/error-handler.js';
 import { AppError, BadRequestError, ConflictError, ForbiddenError, InternalServerError } from './errors/app-errors.js';
+import { requireAuthSession } from './organization-middleware.js';
 
 const applyAuthResponse = async (reply: FastifyReply, response: Response) => {
   reply.status(response.status);
@@ -31,6 +32,119 @@ const applyAuthResponse = async (reply: FastifyReply, response: Response) => {
     if (key.toLowerCase() === 'set-cookie') return;
     reply.header(key, value);
   });
+};
+
+type RegistrationLinkContext = {
+  id: string;
+  organizationId: string;
+  usageLimit: number | null;
+  usageCount: number;
+};
+
+const getRegistrationLink = async (token?: string | null): Promise<RegistrationLinkContext | null> => {
+  if (!token) {
+    return null;
+  }
+
+  const registrationLink = await prisma.registrationLink.findFirst({
+    where: {
+      token,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } }
+      ]
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      usageLimit: true,
+      usageCount: true
+    }
+  });
+
+  if (!registrationLink) {
+    throw new BadRequestError('Invalid or expired registration link');
+  }
+
+  if (registrationLink.usageLimit !== null && registrationLink.usageCount >= registrationLink.usageLimit) {
+    throw new BadRequestError('Invalid or expired registration link');
+  }
+
+  return registrationLink;
+};
+
+const linkUserToRegistrationOrganization = async (userId: string, sessionId: string, token: string) => {
+  const registrationLink = await getRegistrationLink(token);
+  if (!registrationLink) {
+    return { joined: false };
+  }
+
+  const existingMembership = await prisma.organizationMember.findUnique({
+    where: {
+      organizationId_userId: {
+        organizationId: registrationLink.organizationId,
+        userId,
+      },
+    },
+  });
+
+  if (!existingMembership) {
+    await prisma.organizationMember.create({
+      data: {
+        organizationId: registrationLink.organizationId,
+        userId,
+        role: 'MEMBER',
+      }
+    });
+
+    const nextUsageCount = registrationLink.usageCount + 1;
+    const shouldMarkUsed =
+      registrationLink.usageLimit !== null && nextUsageCount >= registrationLink.usageLimit;
+
+    await prisma.registrationLink.update({
+      where: { id: registrationLink.id },
+      data: {
+        usageCount: nextUsageCount,
+        isUsed: shouldMarkUsed
+      }
+    });
+
+    const org = await prisma.organization.findUnique({
+      where: { id: registrationLink.organizationId },
+      select: { name: true }
+    });
+
+    const dmSession = await prisma.dMSession.create({
+      data: {
+        organizationId: registrationLink.organizationId,
+        participants: {
+          create: [
+            { userId: 'system', lastReadAt: new Date() },
+            { userId, lastReadAt: new Date(0) }
+          ]
+        }
+      }
+    });
+
+    await prisma.dMMessage.create({
+      data: {
+        content: `Welcome to ${org?.name || 'the workspace'}! 👋\n\nHere are some tips to get started:\n• Check out the **#general** channel to introduce yourself\n• Use the sidebar to browse channels and direct messages\n• Click on a user's name to start a conversation\n\nIf you have any questions, feel free to reach out!`,
+        sessionId: dmSession.id,
+        senderId: 'system'
+      }
+    });
+  }
+
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { activeOrganizationId: registrationLink.organizationId }
+  });
+
+  return {
+    joined: !existingMembership,
+    organizationId: registrationLink.organizationId,
+    alreadyMember: Boolean(existingMembership),
+  };
 };
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -82,7 +196,10 @@ export async function buildApp(): Promise<FastifyInstance> {
           email: { not: 'system@loft.chat' } // Exclude system user
         }
       });
-      return { hasUsers: userCount > 0 };
+      return {
+        hasUsers: userCount > 0,
+        googleOAuthEnabled: config.googleOAuthEnabled,
+      };
     } catch (error) {
       app.log.error(error);
       throw new InternalServerError('Failed to check status');
@@ -103,30 +220,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
         const isFirstUser = userCount === 0;
         let createdOrganization: { id: string } | null = null;
-        let registrationLink: { id: string; organizationId: string; usageLimit?: number | null; usageCount?: number } | null = null;
+        let registrationLink: RegistrationLinkContext | null = null;
 
         // If there's a registration token, validate it
-        if (body.token) {
-          registrationLink = await prisma.registrationLink.findFirst({
-            where: {
-              token: body.token,
-              OR: [
-                { expiresAt: null },
-                { expiresAt: { gt: new Date() } }
-              ]
-            }
-          });
-
-          if (registrationLink && registrationLink.usageLimit !== null && registrationLink.usageLimit !== undefined) {
-            if (registrationLink.usageCount >= registrationLink.usageLimit) {
-              registrationLink = null;
-            }
-          }
-
-          if (!registrationLink) {
-            throw new BadRequestError('Invalid or expired registration link');
-          }
-        }
+        registrationLink = await getRegistrationLink(body.token);
 
         // If first user and has org name, create organization
         if (isFirstUser && body.organizationName) {
@@ -253,9 +350,8 @@ export async function buildApp(): Promise<FastifyInstance> {
             });
             app.log.info('User linked to organization via registration link');
 
-            const nextUsageCount = (registrationLink.usageCount ?? 0) + 1;
-            const limit = registrationLink.usageLimit ?? null;
-            const shouldMarkUsed = limit !== null && nextUsageCount >= limit;
+            const nextUsageCount = registrationLink.usageCount + 1;
+            const shouldMarkUsed = registrationLink.usageLimit !== null && nextUsageCount >= registrationLink.usageLimit;
 
             await prisma.registrationLink.update({
               where: { id: registrationLink.id },
@@ -327,6 +423,37 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   );
 
+  app.post<{ Body: { token?: string } }>(
+    "/api/auth/oauth/finalize",
+    async (req, res) => {
+      try {
+        const sessionData = await requireAuthSession(req, res);
+        const token = req.body?.token;
+
+        if (!token) {
+          return { success: true, joined: false };
+        }
+
+        const result = await linkUserToRegistrationOrganization(
+          sessionData.user.id,
+          sessionData.session.id,
+          token
+        );
+
+        return {
+          success: true,
+          ...result,
+        };
+      } catch (error) {
+        app.log.error('OAuth finalize error:', error);
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new InternalServerError('Failed to finalize OAuth sign-in');
+      }
+    }
+  );
+
   // BetterAuth handler for all other auth routes
   app.all("/api/auth/*", async (req, res) => {
     const url = new URL(req.url, config.betterAuthUrl);
@@ -359,6 +486,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.register(import('./routes/bookmarks.js'), { prefix: '/api' });
   app.register(import('./routes/emoji.js'), { prefix: '/api' });
   app.register(import('./routes/search.js'), { prefix: '/api' });
+  app.register(import('./routes/apps.js'), { prefix: '/api' });
+  app.register(import('./routes/slash-commands.js'), { prefix: '/api' });
+  app.register(import('./routes/bot-api.js'), { prefix: '/api/bot' });
 
   app.register(import('./registration-links.js'), { prefix: '/api' });
   app.register(import('./user-management.js'), { prefix: '/api/users' });

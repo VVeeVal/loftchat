@@ -19,7 +19,14 @@ export const auth = betterAuth({
         enabled: true,
     },
     socialProviders: {
-        // Add providers here if needed
+        ...(config.googleOAuthEnabled
+            ? {
+                google: {
+                    clientId: config.googleClientId!,
+                    clientSecret: config.googleClientSecret!,
+                },
+            }
+            : {}),
     },
     trustedOrigins,
     advanced: {

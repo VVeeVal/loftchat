@@ -42,6 +42,8 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change_me_in_prod}
       BETTER_AUTH_URL: http://localhost:4000
       FRONTEND_URL: http://localhost:5173
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

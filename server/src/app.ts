@@ -147,6 +147,84 @@ const linkUserToRegistrationOrganization = async (userId: string, sessionId: str
   };
 };
 
+const bootstrapOrganizationForFirstUser = async (userId: string, sessionId: string, organizationName: string) => {
+  const trimmedOrganizationName = organizationName.trim();
+  if (!trimmedOrganizationName) {
+    throw new BadRequestError('Organization name is required');
+  }
+
+  const userCount = await prisma.user.count({
+    where: { email: { not: 'system@loft.chat' } }
+  });
+
+  if (userCount !== 1) {
+    throw new BadRequestError('Workspace has already been initialized');
+  }
+
+  const existingMembership = await prisma.organizationMember.findFirst({
+    where: { userId }
+  });
+
+  if (existingMembership) {
+    return {
+      created: false,
+      organizationId: existingMembership.organizationId,
+      alreadyInitialized: true,
+    };
+  }
+
+  let createdOrganization: { id: string } | null = null;
+
+  try {
+    createdOrganization = await prisma.organization.create({
+      data: {
+        name: trimmedOrganizationName,
+      }
+    });
+  } catch (error: any) {
+    if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+      throw new ConflictError(
+        `Organization name "${trimmedOrganizationName}" is already taken. Please choose a different name.`
+      );
+    }
+    throw error;
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isAdmin: true }
+  });
+
+  await prisma.organizationMember.create({
+    data: {
+      organizationId: createdOrganization.id,
+      userId,
+      role: 'ADMIN',
+    }
+  });
+
+  await prisma.channel.create({
+    data: {
+      name: 'general',
+      description: 'General discussion',
+      createdBy: userId,
+      organizationId: createdOrganization.id,
+      isPrivate: false
+    }
+  });
+
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { activeOrganizationId: createdOrganization.id }
+  });
+
+  return {
+    created: true,
+    organizationId: createdOrganization.id,
+    alreadyInitialized: false,
+  };
+};
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app: FastifyInstance = Fastify({
     logger: true,
@@ -423,14 +501,29 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   );
 
-  app.post<{ Body: { token?: string } }>(
+  app.post<{ Body: { token?: string; organizationName?: string } }>(
     "/api/auth/oauth/finalize",
     async (req, res) => {
       try {
         const sessionData = await requireAuthSession(req, res);
         const token = req.body?.token;
+        const organizationName = req.body?.organizationName;
 
         if (!token) {
+          if (organizationName) {
+            const result = await bootstrapOrganizationForFirstUser(
+              sessionData.user.id,
+              sessionData.session.id,
+              organizationName
+            );
+
+            return {
+              success: true,
+              joined: false,
+              ...result,
+            };
+          }
+
           return { success: true, joined: false };
         }
 

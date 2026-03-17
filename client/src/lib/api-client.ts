@@ -1,7 +1,9 @@
 import type {
   Attachment,
   Bookmark,
+  BotUser,
   Channel,
+  CreateWorkUnitInput,
   CustomEmoji,
   DMMessage,
   DMSession,
@@ -10,7 +12,14 @@ import type {
   SearchResults,
   StorageInfo,
   Thread,
-  User
+  UpdateWorkUnitInput,
+  User,
+  WorkUnit,
+  WorkUnitAgent,
+  WorkUnitMessage,
+  WorkUnitOutput,
+  WorkUnitReviewer,
+  WorkUnitStatus
 } from '@/types/api';
 
 export class APIError extends Error {
@@ -327,6 +336,66 @@ class APIClient {
 
     const payload = await res.json();
     return { ...payload, uploadId: payload.uploadId ?? payload.id } as Attachment;
+  };
+
+  workUnits = {
+    list: (params?: { status?: WorkUnitStatus; ownerId?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.status) searchParams.set('status', params.status);
+      if (params?.ownerId) searchParams.set('ownerId', params.ownerId);
+      const query = searchParams.toString();
+      return this.request<WorkUnit[]>(`/work-units${query ? `?${query}` : ''}`);
+    },
+    get: (id: string) =>
+      this.request<WorkUnit>(`/work-units/${id}`),
+    create: (data: CreateWorkUnitInput) =>
+      this.request<WorkUnit>('/work-units', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateWorkUnitInput) =>
+      this.request<WorkUnit>(`/work-units/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    updateStatus: (id: string, status: WorkUnitStatus) =>
+      this.request<WorkUnit>(`/work-units/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      }),
+    delete: (id: string) =>
+      this.request<{ success: boolean }>(`/work-units/${id}`, {
+        method: 'DELETE',
+      }),
+    availableAgents: () =>
+      this.request<BotUser[]>('/work-units/available-agents'),
+    assignAgent: (id: string, botUserId: string) =>
+      this.request<WorkUnitAgent>(`/work-units/${id}/agents`, {
+        method: 'POST',
+        body: JSON.stringify({ botUserId }),
+      }),
+    removeAgent: (id: string, botUserId: string) =>
+      this.request<{ success: boolean }>(`/work-units/${id}/agents/${botUserId}`, {
+        method: 'DELETE',
+      }),
+    addReviewer: (id: string, userId: string) =>
+      this.request<WorkUnitReviewer>(`/work-units/${id}/reviewers`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      }),
+    removeReviewer: (id: string, userId: string) =>
+      this.request<{ success: boolean }>(`/work-units/${id}/reviewers/${userId}`, {
+        method: 'DELETE',
+      }),
+    getMessages: (id: string, cursor?: string) =>
+      this.request<WorkUnitMessage[]>(`/work-units/${id}/messages${cursor ? `?cursor=${cursor}` : ''}`),
+    sendMessage: (id: string, content: string) =>
+      this.request<WorkUnitMessage>(`/work-units/${id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      }),
+    getOutputs: (id: string) =>
+      this.request<WorkUnitOutput[]>(`/work-units/${id}/outputs`),
   };
 
 }

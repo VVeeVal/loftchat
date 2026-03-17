@@ -13,6 +13,8 @@ import MessageActions from "@/components/MessageActions";
 import ReactionDisplay from "@/components/ReactionDisplay";
 import MessageContent from "@/components/MessageContent";
 import AttachmentList from "@/components/AttachmentList";
+import { WorkUnitDialog } from "@/components/WorkUnitDialog";
+import type { Message, DMMessage } from "@/types/api";
 
 interface MessageListProps {
     messages: any[];
@@ -62,6 +64,8 @@ export default function MessageList({
     const [editingContent, setEditingContent] = useState("");
     const [activeEmojiPickerId, setActiveEmojiPickerId] = useState<string | null>(null);
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
+    const [workUnitDialogOpen, setWorkUnitDialogOpen] = useState(false);
+    const [workUnitSourceMessage, setWorkUnitSourceMessage] = useState<Message | DMMessage | null>(null);
 
     const updateMessagesCache = (updater: (messages: any[]) => any[]) => {
         const queryKey = channelId ? ['messages', channelId] : ['dm_messages', sessionId];
@@ -151,6 +155,11 @@ export default function MessageList({
         deleteMutation.mutate(message.id);
     };
 
+    const handleCreateWorkUnit = (message: any) => {
+        setWorkUnitSourceMessage(message);
+        setWorkUnitDialogOpen(true);
+    };
+
     const sortedMessages = useMemo(
         () => [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
         [messages]
@@ -174,6 +183,7 @@ export default function MessageList({
     }, [highlightMessageId, sortedMessages, virtuosoRef]);
 
     return (
+        <>
         <Virtuoso
             ref={virtuosoRef}
             data={sortedMessages}
@@ -301,11 +311,19 @@ export default function MessageList({
                                 }}
                                 onPin={() => pinMutation.mutate({ messageId: msg.id })}
                                 onBookmark={() => bookmarkMutation.mutate(isDM ? { dmMessageId: msg.id } : { messageId: msg.id })}
+                                onCreateWorkUnit={() => handleCreateWorkUnit(msg)}
                             />
                         </div>
                     </div>
                 </div>
             )}
         />
+        <WorkUnitDialog
+            isOpen={workUnitDialogOpen}
+            onOpenChange={setWorkUnitDialogOpen}
+            sourceMessage={!isDM ? workUnitSourceMessage as Message : undefined}
+            sourceDMMessage={isDM ? workUnitSourceMessage as DMMessage : undefined}
+        />
+        </>
     );
 }

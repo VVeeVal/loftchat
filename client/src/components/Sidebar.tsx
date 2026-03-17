@@ -14,6 +14,7 @@ import { ChannelsSection } from "./sidebar/ChannelsSection";
 import { DMSection } from "./sidebar/DMSection";
 import { ThreadsLink } from "./sidebar/ThreadsLink";
 import { BookmarksLink } from "./sidebar/BookmarksLink";
+import { WorkUnitsLink } from "./sidebar/WorkUnitsLink";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import SearchDialog from "./SearchDialog";
 import { Search } from "lucide-react";
@@ -202,6 +203,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div className="space-y-1 pb-4">
                     <ThreadsLink onNavigate={onNavigate} />
                     <BookmarksLink onNavigate={onNavigate} />
+                    <WorkUnitsLink onNavigate={onNavigate} />
 
                     <StarredSection
                         starredChannels={starredChannels}

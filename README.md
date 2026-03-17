@@ -52,8 +52,9 @@ Railway deployments are split into **separate services** (backend, frontend, and
 - Required variables:
   - `DATABASE_URL` (from Railway Postgres)
   - `BETTER_AUTH_SECRET`
-  - `BETTER_AUTH_URL`
-  - `FRONTEND_URL`
+  - `BETTER_AUTH_URL` (`https://api.example.com/api/auth`)
+  - `FRONTEND_URL` (`https://app.example.com`)
+  - `CORS_ALLOWED_ORIGINS` if you need to allow additional browser origins
   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` if enabling Google OAuth
   - Storage vars if using S3/MinIO (didn't test this, let me know if it works)
 
@@ -66,7 +67,7 @@ Railway deployments are split into **separate services** (backend, frontend, and
 - Create a second Railway service connected to this repo.
 - Set the service **Root Directory** to `/client`.
 - Required variables:
-  - `VITE_API_URL` (backend url)
+  - `VITE_API_URL` (`https://api.example.com`)
 
 ### Environment Variables
 
@@ -80,6 +81,7 @@ Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client
 | `BETTER_AUTH_SECRET` | Secret for JWT signing | Required |
 | `BETTER_AUTH_URL` | Backend URL for auth callbacks | Required |
 | `FRONTEND_URL` | Frontend URL for CORS and links | Required |
+| `CORS_ALLOWED_ORIGINS` | Extra allowed browser origins, comma-separated | Optional |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID | Optional |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Optional |
 | `UPLOAD_DIR` | Local upload directory | `uploads` |
@@ -107,6 +109,17 @@ Google OAuth is optional. To enable it:
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the backend environment.
 
 The first workspace bootstrap remains email/password only. Google OAuth is available for normal sign-in and invite-based sign-up.
+
+### Frontend on `app.`, API on `api.`
+
+Hosting the frontend on `app.example.com` and the backend on `api.example.com` is a standard deployment model.
+
+- `FRONTEND_URL` should be the exact frontend origin: `https://app.example.com`
+- `BETTER_AUTH_URL` should include the auth base path on the API origin: `https://api.example.com/api/auth`
+- `VITE_API_URL` should point to the API origin: `https://api.example.com`
+- `CORS_ALLOWED_ORIGINS` should usually be empty unless you have additional browser origins that must call the API
+
+Use exact origin allowlists for credentialed requests. Avoid wildcard origins such as `*` or `https://*.example.com`.
 
 ---
 

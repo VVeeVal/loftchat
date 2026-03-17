@@ -3,7 +3,7 @@ import { prisma } from '../db.js';
 import { AuthenticatedRequest } from '../types/request.js';
 import { aggregateReactions, findUsersByNames, parseMentions } from '../utils/message-utils.js';
 import { requireOrganization } from '../organization-middleware.js';
-import { requireOrgResource } from '../decorators/resource-guards.js';
+import { requireChannelAccess, requireChannelMembership } from '../decorators/resource-guards.js';
 import { validateBody, validateParams } from '../plugins/validator.js';
 import { idParamSchema, messageIdParamSchema } from '../schemas/common.schemas.js';
 import {
@@ -82,7 +82,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Mark Channel Read
   app.post<{ Params: { id: string } }>('/channels/:id/read', {
-    preHandler: [validateParams(idParamSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
     const user = (req as AuthenticatedRequest).user;
@@ -138,7 +138,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Star/Unstar Channel
   app.post<{ Params: { id: string }; Body: { isStarred: boolean } }>('/channels/:id/star', {
-    preHandler: [validateParams(idParamSchema), validateBody(starChannelSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), validateBody(starChannelSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
     const { isStarred } = req.body;
@@ -159,7 +159,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Update Channel Notification Preference
   app.post<{ Params: { id: string }; Body: { preference: 'ALL' | 'MENTIONS' | 'MUTE' } }>('/channels/:id/notifications', {
-    preHandler: [validateParams(idParamSchema), validateBody(channelNotificationPreferenceSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), validateBody(channelNotificationPreferenceSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
     const { preference } = req.body;
@@ -180,7 +180,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Archive/Unarchive Channel
   app.post<{ Params: { id: string }; Body: { isArchived: boolean } }>('/channels/:id/archive', {
-    preHandler: [validateParams(idParamSchema), validateBody(archiveChannelSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), validateBody(archiveChannelSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id } = req.params;
     const { isArchived } = req.body;
@@ -195,7 +195,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Get Channel & Messages (Fetch Thread if requested)
   app.get<{ Params: { id: string }; Querystring: { cursor?: string; threadId?: string } }>('/channels/:id', {
-    preHandler: [validateParams(idParamSchema)]
+    preHandler: [validateParams(idParamSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
     const { cursor, threadId } = req.query;
@@ -252,7 +252,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Get Pinned Messages
   app.get<{ Params: { id: string } }>('/channels/:id/pinned', {
-    preHandler: [validateParams(idParamSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
 
@@ -282,7 +282,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Pin/Unpin Message
   app.post<{ Params: { id: string; messageId: string }; Body: { isPinned?: boolean } }>('/channels/:id/messages/:messageId/pin', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(pinMessageSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(pinMessageSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id: channelId, messageId } = req.params;
     const { isPinned } = req.body;
@@ -315,7 +315,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Send Message (Support Threading)
   app.post<{ Params: { id: string }; Body: { content: string; threadId?: string; attachments?: { url: string; filename: string; mimetype: string; size: number; uploadId?: string }[] } }>('/channels/:id/messages', {
-    preHandler: [validateParams(idParamSchema), validateBody(sendChannelMessageSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), validateBody(sendChannelMessageSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id } = req.params;
     const { content, threadId, attachments = [] } = req.body;
@@ -429,10 +429,15 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Join Channel
   app.post<{ Params: { id: string } }>('/channels/:id/join', {
-    preHandler: [validateParams(idParamSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), requireChannelAccess]
   }, async (req, res) => {
     const { id } = req.params;
     const user = (req as AuthenticatedRequest).user;
+    const channel = (req as any).channel;
+
+    if (channel.isPrivate) {
+      throw new ForbiddenError('Cannot join a private channel without an invite');
+    }
 
     try {
       const member = await prisma.channelMember.create({
@@ -449,7 +454,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Add Channel Member
   app.post<{ Params: { id: string }; Body: { userId?: string } }>('/channels/:id/members', {
-    preHandler: [validateParams(idParamSchema), validateBody(addChannelMemberSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(idParamSchema), validateBody(addChannelMemberSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
@@ -483,7 +488,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Edit Channel Message
   app.put<{ Params: { id: string; messageId: string }; Body: { content: string } }>('/channels/:id/messages/:messageId', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(editChannelMessageSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(editChannelMessageSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id: channelId, messageId } = req.params;
     const { content } = req.body;
@@ -539,7 +544,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Delete Channel Message
   app.delete<{ Params: { id: string; messageId: string } }>('/channels/:id/messages/:messageId', {
-    preHandler: [validateParams(messageIdParamSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(messageIdParamSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id: channelId, messageId } = req.params;
     const user = (req as AuthenticatedRequest).user;
@@ -610,7 +615,7 @@ export default async function channelRoutes(app: FastifyInstance) {
 
   // Toggle Channel Message Reaction
   app.post<{ Params: { id: string; messageId: string }; Body: { emoji: string } }>('/channels/:id/messages/:messageId/reactions', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(reactionSchema), requireOrgResource('channel')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(reactionSchema), requireChannelMembership]
   }, async (req, res) => {
     const { id: channelId, messageId } = req.params;
     const { emoji } = req.body;

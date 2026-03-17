@@ -3,7 +3,7 @@ import { prisma } from '../db.js';
 import { AuthenticatedRequest } from '../types/request.js';
 import { aggregateReactions, findUsersByNames, parseMentions } from '../utils/message-utils.js';
 import { requireOrganization } from '../organization-middleware.js';
-import { requireOrgResource } from '../decorators/resource-guards.js';
+import { requireDMParticipant } from '../decorators/resource-guards.js';
 import { validateBody, validateParams } from '../plugins/validator.js';
 import { idParamSchema, messageIdParamSchema } from '../schemas/common.schemas.js';
 import { pinMessageSchema } from '../schemas/channel.schemas.js';
@@ -75,7 +75,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Mark DM Read
   app.post<{ Params: { id: string } }>('/dms/:id/read', {
-    preHandler: [validateParams(idParamSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const user = (req as AuthenticatedRequest).user;
@@ -89,19 +89,14 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Star/Unstar DM
   app.post<{ Params: { id: string }; Body: { isStarred: boolean } }>('/dms/:id/star', {
-    preHandler: [validateParams(idParamSchema), validateBody(starDMSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), validateBody(starDMSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const { isStarred } = req.body;
     const user = (req as AuthenticatedRequest).user;
 
-    const participant = await prisma.dMParticipant.upsert({
+    const participant = await prisma.dMParticipant.update({
       where: { sessionId_userId: { sessionId: id, userId: user.id } },
-      create: {
-        sessionId: id,
-        userId: user.id,
-        isStarred
-      },
       update: { isStarred }
     });
     return participant;
@@ -109,19 +104,14 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Update DM Notification Preference
   app.post<{ Params: { id: string }; Body: { preference: 'ALL' | 'MENTIONS' | 'MUTE' } }>('/dms/:id/notifications', {
-    preHandler: [validateParams(idParamSchema), validateBody(dmNotificationPreferenceSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), validateBody(dmNotificationPreferenceSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const { preference } = req.body;
     const user = (req as AuthenticatedRequest).user;
 
-    const participant = await prisma.dMParticipant.upsert({
+    const participant = await prisma.dMParticipant.update({
       where: { sessionId_userId: { sessionId: id, userId: user.id } },
-      create: {
-        sessionId: id,
-        userId: user.id,
-        notificationPreference: preference
-      },
       update: { notificationPreference: preference }
     });
     return participant;
@@ -129,7 +119,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Archive/Unarchive DM
   app.post<{ Params: { id: string }; Body: { isArchived: boolean } }>('/dms/:id/archive', {
-    preHandler: [validateParams(idParamSchema), validateBody(archiveDMSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), validateBody(archiveDMSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const { isArchived } = req.body;
@@ -207,7 +197,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Get DM Messages (Threading Support)
   app.get<{ Params: { id: string }; Querystring: { cursor?: string; threadId?: string } }>('/dms/:id', {
-    preHandler: [validateParams(idParamSchema)]
+    preHandler: [validateParams(idParamSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const { cursor, threadId } = req.query;
@@ -268,7 +258,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Get Pinned DM Messages
   app.get<{ Params: { id: string } }>('/dms/:id/pinned', {
-    preHandler: [validateParams(idParamSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const user = (req as AuthenticatedRequest).user;
@@ -301,7 +291,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Pin/Unpin DM Message
   app.post<{ Params: { id: string; messageId: string }; Body: { isPinned?: boolean } }>('/dms/:id/messages/:messageId/pin', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(pinMessageSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(pinMessageSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id: sessionId, messageId } = req.params;
     const { isPinned } = req.body;
@@ -343,7 +333,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Send DM Message (Threading Support)
   app.post<{ Params: { id: string }; Body: { content: string; threadId?: string; attachments?: { url: string; filename: string; mimetype: string; size: number; uploadId?: string }[] } }>('/dms/:id/messages', {
-    preHandler: [validateParams(idParamSchema), validateBody(sendDMMessageSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(idParamSchema), validateBody(sendDMMessageSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id } = req.params;
     const { content, threadId, attachments = [] } = req.body;
@@ -452,7 +442,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Edit DM Message
   app.put<{ Params: { id: string; messageId: string }; Body: { content: string } }>('/dms/:id/messages/:messageId', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(editDMMessageSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(editDMMessageSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id: sessionId, messageId } = req.params;
     const { content } = req.body;
@@ -526,7 +516,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Delete DM Message
   app.delete<{ Params: { id: string; messageId: string } }>('/dms/:id/messages/:messageId', {
-    preHandler: [validateParams(messageIdParamSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(messageIdParamSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id: sessionId, messageId } = req.params;
     const user = (req as AuthenticatedRequest).user;
@@ -605,7 +595,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
   // Toggle DM Message Reaction
   app.post<{ Params: { id: string; messageId: string }; Body: { emoji: string } }>('/dms/:id/messages/:messageId/reactions', {
-    preHandler: [validateParams(messageIdParamSchema), validateBody(reactionSchema), requireOrgResource('dMSession')]
+    preHandler: [validateParams(messageIdParamSchema), validateBody(reactionSchema), requireDMParticipant]
   }, async (req, res) => {
     const { id: sessionId, messageId } = req.params;
     const { emoji } = req.body;

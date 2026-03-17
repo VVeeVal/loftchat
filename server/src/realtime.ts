@@ -9,6 +9,7 @@ interface Subscription {
     socket: any;
     channelId?: string;
     sessionId?: string;
+    workUnitId?: string;
     userId?: string;
     organizationId?: string;
     connectedAt: number;
@@ -220,6 +221,7 @@ export default async function realtimeRoutes(app: FastifyInstance) {
     await pgClient.connect();
     await pgClient.query('LISTEN channel_events');
     await pgClient.query('LISTEN dm_events');
+    await pgClient.query('LISTEN work_unit_events');
 
     console.log('Realtime: Listening for Postgres events...');
 
@@ -227,7 +229,7 @@ export default async function realtimeRoutes(app: FastifyInstance) {
         if (!msg.payload) return;
         try {
             const payload = JSON.parse(msg.payload);
-            const { channelId, sessionId, organizationId: eventOrgId } = payload;
+            const { channelId, sessionId, workUnitId, organizationId: eventOrgId } = payload;
 
             // Broadcast to matching subscribers
             for (const sub of subscribers) {
@@ -236,10 +238,16 @@ export default async function realtimeRoutes(app: FastifyInstance) {
                     continue;
                 }
 
-                // Direct channel/session match
+                // Direct channel/session/workUnit match
                 if (channelId && sub.channelId === channelId) {
                     sub.socket.send(JSON.stringify(payload));
                 } else if (sessionId && sub.sessionId === sessionId) {
+                    sub.socket.send(JSON.stringify(payload));
+                } else if (workUnitId && sub.workUnitId === workUnitId) {
+                    sub.socket.send(JSON.stringify(payload));
+                }
+                // Work unit events for notification subscribers in the same org
+                else if (workUnitId && sub.notifications && sub.organizationId === eventOrgId) {
                     sub.socket.send(JSON.stringify(payload));
                 }
                 // Notification subscribers get INSERT events scoped to org + access
@@ -294,6 +302,7 @@ export default async function realtimeRoutes(app: FastifyInstance) {
         const query = req.query as any;
         const channelId = query.channelId;
         const sessionId = query.sessionId;
+        const workUnitId = query.workUnitId;
         const notifications = query.notifications === 'true';
 
         // Authenticate session from cookie/headers before wiring socket
@@ -360,12 +369,25 @@ export default async function realtimeRoutes(app: FastifyInstance) {
                 return;
             }
         }
+        if (workUnitId) {
+            const workUnit = await prisma.workUnit.findFirst({
+                where: {
+                    id: workUnitId,
+                    organizationId
+                }
+            });
+            if (!workUnit) {
+                socket.close();
+                return;
+            }
+        }
 
         const now = Date.now();
         const subscription: Subscription = {
             socket,
             channelId,
             sessionId,
+            workUnitId,
             userId,
             organizationId,
             connectedAt: now,
@@ -394,7 +416,8 @@ export default async function realtimeRoutes(app: FastifyInstance) {
             type: 'CONNECTED',
             notifications: notifications || false,
             channelId: channelId || null,
-            sessionId: sessionId || null
+            sessionId: sessionId || null,
+            workUnitId: workUnitId || null
         }));
 
         socket.on('message', (message: any) => {

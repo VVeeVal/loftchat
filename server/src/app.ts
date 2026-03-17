@@ -34,6 +34,16 @@ const applyAuthResponse = async (reply: FastifyReply, response: Response) => {
   });
 };
 
+const getAllowedCorsOrigins = () => new Set(config.corsAllowedOrigins.map((origin) => new URL(origin).origin));
+
+const isAllowedOrigin = (origin?: string | null) => {
+  if (!origin) {
+    return true;
+  }
+
+  return getAllowedCorsOrigins().has(origin);
+};
+
 type RegistrationLinkContext = {
   id: string;
   organizationId: string;
@@ -232,7 +242,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cors, {
     origin: (origin, cb) => {
-      cb(null, true);
+      cb(null, isAllowedOrigin(origin));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -259,9 +269,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (!mutating.includes(req.method)) return;
     const originHeader = req.headers.origin ?? (req.headers.referer ? new URL(req.headers.referer).origin : null);
     if (!originHeader) return;
-    if (!config.frontendUrl) return;
-    const allowed = [new URL(config.frontendUrl).origin];
-    if (!allowed.includes(originHeader)) {
+    if (!isAllowedOrigin(originHeader)) {
       throw new ForbiddenError('Invalid request origin');
     }
   });
@@ -290,7 +298,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     async (req, res) => {
       try {
         const body = req.body;
-        app.log.info('Sign-up handler hit with body:', body);
 
         const userCount = await prisma.user.count({
           where: { email: { not: 'system@loft.chat' } }
@@ -582,6 +589,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.register(import('./routes/apps.js'), { prefix: '/api' });
   app.register(import('./routes/slash-commands.js'), { prefix: '/api' });
   app.register(import('./routes/bot-api.js'), { prefix: '/api/bot' });
+  app.register(import('./routes/work-units.js'), { prefix: '/api' });
 
   app.register(import('./registration-links.js'), { prefix: '/api' });
   app.register(import('./user-management.js'), { prefix: '/api/users' });

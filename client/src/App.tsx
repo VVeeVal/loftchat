@@ -13,6 +13,7 @@ import { API_URL } from "@/lib/api-client";
 
 import Threads from "./pages/Threads";
 import Bookmarks from "./pages/Bookmarks";
+import WorkUnits from "./pages/WorkUnits";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ function App() {
             <Route path="/dms/:sessionId" element={<DMChat />} />
             <Route path="/threads" element={<Threads />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
+            <Route path="/work-units" element={<WorkUnits />} />
           </Route>
         </Routes>
       </BrowserRouter>

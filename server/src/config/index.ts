@@ -12,6 +12,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   FRONTEND_URL: z.string().url().optional(),
+  CORS_ALLOWED_ORIGINS: z.string().optional(),
   UPLOAD_DIR: z.string().default('uploads'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().int().positive().default(25),
   ALLOWED_UPLOAD_MIME_TYPES: z.string().optional(),
@@ -40,6 +41,16 @@ if (!parsed.success) {
 const data = parsed.data;
 const frontendUrl = data.FRONTEND_URL
   ?? (data.NODE_ENV === 'production' ? undefined : 'http://localhost:5173');
+const corsAllowedOrigins = Array.from(
+  new Set(
+    [
+      frontendUrl,
+      ...(data.CORS_ALLOWED_ORIGINS
+        ? data.CORS_ALLOWED_ORIGINS.split(',').map((entry) => entry.trim()).filter(Boolean)
+        : [])
+    ].filter((value): value is string => Boolean(value))
+  )
+);
 
 if (!frontendUrl) {
   throw new Error('FRONTEND_URL is required in production.');
@@ -54,6 +65,7 @@ export const config = {
   googleClientId: data.GOOGLE_CLIENT_ID,
   googleClientSecret: data.GOOGLE_CLIENT_SECRET,
   frontendUrl,
+  corsAllowedOrigins,
   uploadDir: data.UPLOAD_DIR,
   maxUploadSizeBytes: data.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
   allowedUploadMimeTypes: data.ALLOWED_UPLOAD_MIME_TYPES

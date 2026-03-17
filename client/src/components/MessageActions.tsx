@@ -1,4 +1,4 @@
-import { Bookmark, MessageSquare, Pencil, Pin, Smile, Trash2 } from "lucide-react";
+import { Bookmark, Briefcase, MessageSquare, Pencil, Pin, Smile, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmojiPicker from "@/components/EmojiPicker";
 
@@ -15,6 +15,7 @@ interface MessageActionsProps {
     onToggleEmojiPicker: () => void;
     onPin?: () => void;
     onBookmark?: () => void;
+    onCreateWorkUnit?: () => void;
 }
 
 export default function MessageActions({
@@ -29,7 +30,8 @@ export default function MessageActions({
     onReact,
     onToggleEmojiPicker,
     onPin,
-    onBookmark
+    onBookmark,
+    onCreateWorkUnit
 }: MessageActionsProps) {
     return (
         <div className="relative flex items-center rounded border border-gray-200 bg-white shadow-sm">
@@ -82,6 +84,17 @@ export default function MessageActions({
                     title={isBookmarked ? "Remove bookmark" : "Bookmark message"}
                 >
                     <Bookmark className="h-4 w-4" />
+                </Button>
+            )}
+            {onCreateWorkUnit && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-gray-500 hover:text-black"
+                    onClick={onCreateWorkUnit}
+                    title="Turn into Work Unit"
+                >
+                    <Briefcase className="h-4 w-4" />
                 </Button>
             )}
             {canDelete && (

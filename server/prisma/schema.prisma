@@ -43,6 +43,12 @@ model User {
   createdApps      App[]             @relation("AppCreator")
   appInstallations AppInstallation[]
 
+  // Work unit relations
+  workUnitsOwned     WorkUnit[]         @relation("WorkUnitOwner")
+  workUnitReviews    WorkUnitReviewer[]
+  workUnitOutputs    WorkUnitOutput[]
+  workUnitMessages   WorkUnitMessage[]
+
   @@map("user")
 }
 
@@ -83,7 +89,6 @@ model Account {
 
   @@unique([providerId, accountId])
   @@index([userId])
-  @@unique([providerId, accountId])
   @@map("account")
 }
 
@@ -121,6 +126,9 @@ model Organization {
   botTokens         BotToken[]
   eventDeliveries   EventDelivery[]
   socketConnections SocketConnection[]
+
+  // Work unit relations
+  workUnits WorkUnit[]
 
   @@map("organization")
 }
@@ -203,6 +211,9 @@ model Message {
   attachments Attachment[]
   bookmarks   Bookmark[]
 
+  // Work unit relations
+  workUnits WorkUnit[]
+
   @@index([channelId, createdAt])
   @@index([threadId])
 }
@@ -258,6 +269,9 @@ model DMMessage {
   mentions    DMMention[]
   attachments DMAttachment[]
   bookmarks   Bookmark[]
+
+  // Work unit relations
+  workUnits WorkUnit[]
 
   @@index([sessionId, createdAt])
   @@index([threadId])
@@ -499,6 +513,10 @@ model BotUser {
   app          App          @relation(fields: [appId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  // Work unit relations
+  workUnitAssignments WorkUnitAgent[]
+  workUnitOutputs     WorkUnitOutput[]
+
   @@unique([appId, organizationId])
   @@index([appId])
   @@index([organizationId])
@@ -632,4 +650,103 @@ enum EventDeliveryStatus {
   DELIVERED
   FAILED
   RETRYING
+}
+
+// --- Work Units ---
+
+enum WorkUnitStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+model WorkUnit {
+  id                String         @id @default(cuid())
+  organizationId    String
+  title             String
+  goal              String         @db.Text
+  context           String?        @db.Text
+  status            WorkUnitStatus @default(DRAFT)
+  sourceMessageId   String?
+  sourceDMMessageId String?
+  ownerId           String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  completedAt       DateTime?
+
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner           User               @relation("WorkUnitOwner", fields: [ownerId], references: [id])
+  sourceMessage   Message?           @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  sourceDMMessage DMMessage?         @relation(fields: [sourceDMMessageId], references: [id], onDelete: SetNull)
+  assignedAgents  WorkUnitAgent[]
+  reviewers       WorkUnitReviewer[]
+  outputs         WorkUnitOutput[]
+  messages        WorkUnitMessage[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([status])
+  @@map("work_unit")
+}
+
+model WorkUnitAgent {
+  id         String   @id @default(cuid())
+  workUnitId String
+  botUserId  String
+  assignedAt DateTime @default(now())
+
+  workUnit WorkUnit @relation(fields: [workUnitId], references: [id], onDelete: Cascade)
+  botUser  BotUser  @relation(fields: [botUserId], references: [id], onDelete: Cascade)
+
+  @@unique([workUnitId, botUserId])
+  @@map("work_unit_agent")
+}
+
+model WorkUnitReviewer {
+  id         String   @id @default(cuid())
+  workUnitId String
+  userId     String
+  addedAt    DateTime @default(now())
+
+  workUnit WorkUnit @relation(fields: [workUnitId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workUnitId, userId])
+  @@map("work_unit_reviewer")
+}
+
+model WorkUnitOutput {
+  id         String   @id @default(cuid())
+  workUnitId String
+  botUserId  String?
+  userId     String?
+  type       String
+  name       String
+  content    String   @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  workUnit WorkUnit @relation(fields: [workUnitId], references: [id], onDelete: Cascade)
+  botUser  BotUser? @relation(fields: [botUserId], references: [id], onDelete: SetNull)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("work_unit_output")
+}
+
+model WorkUnitMessage {
+  id         String   @id @default(cuid())
+  workUnitId String
+  senderId   String
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isEdited   Boolean  @default(false)
+
+  workUnit WorkUnit @relation(fields: [workUnitId], references: [id], onDelete: Cascade)
+  sender   User     @relation(fields: [senderId], references: [id])
+
+  @@map("work_unit_message")
 }

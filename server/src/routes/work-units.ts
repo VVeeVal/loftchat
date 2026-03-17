@@ -20,12 +20,44 @@ import { eventPublisher } from '../services/event-publisher.js';
 export default async function workUnitRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireOrganization);
 
-  // Helper to check if user is owner, reviewer, or assigned agent
-  const canAccessWorkUnit = async (workUnitId: string, userId: string, orgId: string) => {
+  const buildWorkUnitVisibilityWhere = (userId: string, orgId: string) => ({
+    organizationId: orgId,
+    OR: [
+      {
+        sourceMessage: {
+          channel: {
+            OR: [
+              { isPrivate: false },
+              { members: { some: { userId } } },
+              { createdBy: userId }
+            ]
+          }
+        }
+      },
+      {
+        sourceDMMessage: {
+          session: {
+            participants: { some: { userId } }
+          }
+        }
+      },
+      {
+        sourceMessageId: null,
+        sourceDMMessageId: null,
+        OR: [
+          { ownerId: userId },
+          { reviewers: { some: { userId } } },
+          { assignedAgents: { some: { botUser: { userId } } } }
+        ]
+      }
+    ]
+  });
+
+  const getAccessibleWorkUnit = async (workUnitId: string, userId: string, orgId: string) => {
     const workUnit = await prisma.workUnit.findFirst({
       where: {
         id: workUnitId,
-        organizationId: orgId
+        ...buildWorkUnitVisibilityWhere(userId, orgId)
       },
       include: {
         reviewers: true,
@@ -39,16 +71,11 @@ export default async function workUnitRoutes(app: FastifyInstance) {
 
     if (!workUnit) return null;
 
-    const isOwner = workUnit.ownerId === userId;
-    const isReviewer = workUnit.reviewers.some(r => r.userId === userId);
-    const isAssignedAgent = workUnit.assignedAgents.some(a => a.botUser.userId === userId);
-
     return {
       workUnit,
-      isOwner,
-      isReviewer,
-      isAssignedAgent,
-      canAccess: isOwner || isReviewer || isAssignedAgent
+      isOwner: workUnit.ownerId === userId,
+      isReviewer: workUnit.reviewers.some((reviewer) => reviewer.userId === userId),
+      isAssignedAgent: workUnit.assignedAgents.some((agent) => agent.botUser.userId === userId)
     };
   };
 
@@ -63,9 +90,7 @@ export default async function workUnitRoutes(app: FastifyInstance) {
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
     const { status, ownerId } = req.query;
 
-    const where: any = {
-      organizationId: orgContext.organizationId
-    };
+    const where: any = buildWorkUnitVisibilityWhere(user.id, orgContext.organizationId);
 
     if (status) {
       where.status = status;
@@ -114,12 +139,13 @@ export default async function workUnitRoutes(app: FastifyInstance) {
     preHandler: [validateParams(workUnitIdParamSchema)]
   }, async (req) => {
     const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
 
     const workUnit = await prisma.workUnit.findFirst({
       where: {
         id,
-        organizationId: orgContext.organizationId
+        ...buildWorkUnitVisibilityWhere(user.id, orgContext.organizationId)
       },
       include: {
         owner: {
@@ -198,11 +224,18 @@ export default async function workUnitRoutes(app: FastifyInstance) {
       const message = await prisma.message.findFirst({
         where: {
           id: sourceMessageId,
-          channel: { organizationId: orgContext.organizationId }
+          channel: {
+            organizationId: orgContext.organizationId,
+            OR: [
+              { isPrivate: false },
+              { members: { some: { userId: user.id } } },
+              { createdBy: user.id }
+            ]
+          }
         }
       });
       if (!message) {
-        throw new BadRequestError('Source message not found');
+        throw new BadRequestError('Source message not found or not accessible');
       }
     }
 
@@ -210,11 +243,14 @@ export default async function workUnitRoutes(app: FastifyInstance) {
       const dmMessage = await prisma.dMMessage.findFirst({
         where: {
           id: sourceDMMessageId,
-          session: { organizationId: orgContext.organizationId }
+          session: {
+            organizationId: orgContext.organizationId,
+            participants: { some: { userId: user.id } }
+          }
         }
       });
       if (!dmMessage) {
-        throw new BadRequestError('Source DM message not found');
+        throw new BadRequestError('Source DM message not found or not accessible');
       }
     }
 
@@ -299,7 +335,7 @@ export default async function workUnitRoutes(app: FastifyInstance) {
     const user = (req as AuthenticatedRequest).user;
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
 
-    const access = await canAccessWorkUnit(id, user.id, orgContext.organizationId);
+    const access = await getAccessibleWorkUnit(id, user.id, orgContext.organizationId);
     if (!access) {
       throw new NotFoundError('Work unit not found');
     }
@@ -613,14 +649,10 @@ export default async function workUnitRoutes(app: FastifyInstance) {
   }, async (req) => {
     const { id } = req.params;
     const { cursor } = req.query;
+    const user = (req as AuthenticatedRequest).user;
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
 
-    const workUnit = await prisma.workUnit.findFirst({
-      where: {
-        id,
-        organizationId: orgContext.organizationId
-      }
-    });
+    const workUnit = await getAccessibleWorkUnit(id, user.id, orgContext.organizationId);
 
     if (!workUnit) {
       throw new NotFoundError('Work unit not found');
@@ -654,13 +686,9 @@ export default async function workUnitRoutes(app: FastifyInstance) {
     const user = (req as AuthenticatedRequest).user;
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
 
-    const access = await canAccessWorkUnit(id, user.id, orgContext.organizationId);
+    const access = await getAccessibleWorkUnit(id, user.id, orgContext.organizationId);
     if (!access) {
       throw new NotFoundError('Work unit not found');
-    }
-
-    if (!access.canAccess) {
-      throw new ForbiddenError('You do not have access to this work unit');
     }
 
     const message = await prisma.workUnitMessage.create({
@@ -707,14 +735,10 @@ export default async function workUnitRoutes(app: FastifyInstance) {
     preHandler: [validateParams(workUnitIdParamSchema)]
   }, async (req) => {
     const { id } = req.params;
+    const user = (req as AuthenticatedRequest).user;
     const orgContext = (req as AuthenticatedRequest).organizationContext!;
 
-    const workUnit = await prisma.workUnit.findFirst({
-      where: {
-        id,
-        organizationId: orgContext.organizationId
-      }
-    });
+    const workUnit = await getAccessibleWorkUnit(id, user.id, orgContext.organizationId);
 
     if (!workUnit) {
       throw new NotFoundError('Work unit not found');

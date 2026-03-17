@@ -15,6 +15,7 @@ import { Copy, Check } from "lucide-react";
 import { UserManagementSection } from "./UserManagementSection";
 import { PasswordResetDialog } from "./PasswordResetDialog";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import type { RegistrationLink } from "@/types/api";
 
 interface WorkspaceSettingsProps {
     isOpen: boolean;
@@ -82,7 +83,7 @@ export function WorkspaceSettings({ isOpen, onOpenChange }: WorkspaceSettingsPro
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    const isLinkExpired = (link: any) => {
+    const isLinkExpired = (link: RegistrationLink) => {
         if (!link.expiresAt) return false;
         return new Date(link.expiresAt) < new Date();
     };
@@ -163,7 +164,7 @@ export function WorkspaceSettings({ isOpen, onOpenChange }: WorkspaceSettingsPro
                         <h3 className="text-sm font-semibold">Registration Links</h3>
                         {links && links.length > 0 ? (
                             <div className="space-y-2">
-                                {links.map((link: any) => {
+                                {links.map((link) => {
                                     const expired = isLinkExpired(link);
                                     const isUsed = link.isUsed;
                                     const isCopied = copiedId === link.id;

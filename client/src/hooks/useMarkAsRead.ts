@@ -19,7 +19,7 @@ export function useMarkAsRead({ channelId, sessionId, messageCount, shouldMarkRe
     const queryClient = useQueryClient();
     const { data: session } = authClient.useSession();
     const prevCountRef = useRef(0);
-    const prevIdRef = useRef<string | undefined>();
+    const prevIdRef = useRef<string | undefined>(undefined);
 
     useEffect(() => {
         if (!session?.user?.id) return;

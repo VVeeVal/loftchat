@@ -3,19 +3,29 @@ import { useCallback, useEffect, useState } from 'react';
 type NotificationPermission = 'granted' | 'denied' | 'default';
 
 const NOTIFICATION_ENABLED_KEY = 'notifications_enabled';
+const NOTIFICATION_ENABLED_EVENT = 'loft:notifications-enabled-changed';
+
+function getNotificationPermission(): NotificationPermission {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+        return Notification.permission;
+    }
+
+    return 'denied';
+}
+
+function getStoredNotificationEnabled(): boolean {
+    if (typeof window === 'undefined') {
+        return true;
+    }
+
+    const stored = window.localStorage.getItem(NOTIFICATION_ENABLED_KEY);
+    return stored === null ? true : stored === 'true';
+}
 
 export function useNotifications() {
-    const [permission, setPermission] = useState<NotificationPermission>(() => {
-        if (typeof window !== 'undefined' && 'Notification' in window) {
-            return Notification.permission;
-        }
-        return 'denied';
-    });
+    const [permission, setPermission] = useState<NotificationPermission>(getNotificationPermission);
 
-    const [isEnabled, setIsEnabled] = useState<boolean>(() => {
-        const stored = localStorage.getItem(NOTIFICATION_ENABLED_KEY);
-        return stored === null ? true : stored === 'true';
-    });
+    const [isEnabled, setIsEnabledState] = useState<boolean>(getStoredNotificationEnabled);
 
     const [isSupported] = useState(() => {
         return typeof window !== 'undefined' && 'Notification' in window;
@@ -34,6 +44,28 @@ export function useNotifications() {
         return () => clearInterval(interval);
     }, [isSupported]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncEnabledState = () => {
+            setIsEnabledState(getStoredNotificationEnabled());
+        };
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === null || event.key === NOTIFICATION_ENABLED_KEY) {
+                syncEnabledState();
+            }
+        };
+
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener(NOTIFICATION_ENABLED_EVENT, syncEnabledState);
+
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener(NOTIFICATION_ENABLED_EVENT, syncEnabledState);
+        };
+    }, []);
+
     const requestPermission = useCallback(async () => {
         if (!isSupported) return 'denied';
 
@@ -48,8 +80,12 @@ export function useNotifications() {
     }, [isSupported]);
 
     const setEnabled = useCallback((enabled: boolean) => {
-        setIsEnabled(enabled);
-        localStorage.setItem(NOTIFICATION_ENABLED_KEY, String(enabled));
+        setIsEnabledState(enabled);
+
+        if (typeof window === 'undefined') return;
+
+        window.localStorage.setItem(NOTIFICATION_ENABLED_KEY, String(enabled));
+        window.dispatchEvent(new Event(NOTIFICATION_ENABLED_EVENT));
     }, []);
 
     const showNotification = useCallback((title: string, options?: NotificationOptions & { onClick?: () => void }) => {

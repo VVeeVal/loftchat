@@ -22,9 +22,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { api } from "@/lib/api-client";
+import { APIError, api } from "@/lib/api-client";
 import { AgentSelector } from "./AgentSelector";
-import type { WorkUnit, WorkUnitStatus, User } from "@/types/api";
+import type { WorkUnitStatus, User } from "@/types/api";
 import { authClient } from "@/lib/auth-client";
 
 interface WorkUnitPanelProps {
@@ -41,6 +41,25 @@ const statusConfig: Record<WorkUnitStatus, { label: string; icon: React.ReactNod
     CANCELLED: { label: 'Cancelled', icon: <XCircle className="h-4 w-4" />, color: 'bg-red-500' },
 };
 
+function getUserLabel(user?: { name?: string | null; email?: string | null } | null) {
+    return user?.name || user?.email || "Unknown user";
+}
+
+function getUserInitial(user?: { name?: string | null; email?: string | null } | null) {
+    return getUserLabel(user).trim().charAt(0).toUpperCase() || "?";
+}
+
+function formatRelativeTime(value?: string | null) {
+    if (!value) return "Unknown time";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "Unknown time";
+    }
+
+    return formatDistanceToNow(date, { addSuffix: true });
+}
+
 export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
     const queryClient = useQueryClient();
     const [messageInput, setMessageInput] = useState("");
@@ -48,7 +67,7 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
     const { data: sessionData } = authClient.useSession();
     const currentUserId = sessionData?.user?.id;
 
-    const { data: workUnit, isLoading } = useQuery({
+    const { data: workUnit, isLoading, error: workUnitError } = useQuery({
         queryKey: ['work-unit', workUnitId],
         queryFn: () => api.workUnits.get(workUnitId),
         refetchInterval: 5000,
@@ -118,10 +137,31 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
         }
     };
 
-    if (isLoading || !workUnit) {
+    if (isLoading) {
         return (
             <div className="w-96 border-l flex items-center justify-center">
                 <p className="text-muted-foreground">Loading...</p>
+            </div>
+        );
+    }
+
+    if (workUnitError || !workUnit) {
+        const errorMessage = workUnitError instanceof APIError
+            ? workUnitError.message
+            : "This work unit could not be loaded.";
+
+        return (
+            <div className="w-96 border-l flex items-center justify-center bg-background p-6">
+                <div className="space-y-3 text-center">
+                    <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
+                    <div>
+                        <p className="font-medium">Unable to open work unit</p>
+                        <p className="text-sm text-muted-foreground">{errorMessage}</p>
+                    </div>
+                    <Button variant="outline" onClick={onClose}>
+                        Close
+                    </Button>
+                </div>
             </div>
         );
     }
@@ -195,19 +235,17 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
                             ) : (
                                 messages.map((message) => (
                                     <div key={message.id} className="flex gap-3">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={message.sender.image || undefined} />
-                                            <AvatarFallback>
-                                                {message.sender.name?.[0] || message.sender.email[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={message.sender.image || undefined} />
+                                                <AvatarFallback>
+                                                    {getUserInitial(message.sender)}
+                                                </AvatarFallback>
+                                            </Avatar>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-baseline gap-2">
-                                                <span className="font-medium text-sm">
-                                                    {message.sender.name || message.sender.email}
-                                                </span>
+                                                <span className="font-medium text-sm">{getUserLabel(message.sender)}</span>
                                                 <span className="text-xs text-muted-foreground">
-                                                    {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                                                    {formatRelativeTime(message.createdAt)}
                                                 </span>
                                             </div>
                                             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -271,7 +309,7 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
                                                             <UserIcon className="h-3 w-3" />
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <span className="text-sm font-medium">{output.user.name}</span>
+                                                    <span className="text-sm font-medium">{getUserLabel(output.user)}</span>
                                                 </>
                                             ) : null}
                                             <Badge variant="outline" className="ml-auto">{output.type}</Badge>
@@ -281,7 +319,7 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
                                             {output.content}
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-2">
-                                            {formatDistanceToNow(new Date(output.createdAt), { addSuffix: true })}
+                                            {formatRelativeTime(output.createdAt)}
                                         </p>
                                     </div>
                                 ))
@@ -337,10 +375,10 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
                                                 <Avatar className="h-6 w-6">
                                                     <AvatarImage src={reviewer.user.image || undefined} />
                                                     <AvatarFallback>
-                                                        {reviewer.user.name?.[0] || reviewer.user.email[0]}
+                                                        {getUserInitial(reviewer.user)}
                                                     </AvatarFallback>
                                                 </Avatar>
-                                                <span className="text-sm flex-1">{reviewer.user.name || reviewer.user.email}</span>
+                                                <span className="text-sm flex-1">{getUserLabel(reviewer.user)}</span>
                                                 {isOwner && (
                                                     <Button
                                                         variant="ghost"
@@ -385,19 +423,19 @@ export function WorkUnitPanel({ workUnitId, onClose }: WorkUnitPanelProps) {
                                     <Avatar className="h-6 w-6">
                                         <AvatarImage src={workUnit.owner.image || undefined} />
                                         <AvatarFallback>
-                                            {workUnit.owner.name?.[0] || workUnit.owner.email[0]}
+                                            {getUserInitial(workUnit.owner)}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-sm">{workUnit.owner.name || workUnit.owner.email}</span>
+                                    <span className="text-sm">{getUserLabel(workUnit.owner)}</span>
                                 </div>
                             </div>
 
                             {/* Metadata */}
                             <div className="text-xs text-muted-foreground space-y-1">
-                                <p>Created {formatDistanceToNow(new Date(workUnit.createdAt), { addSuffix: true })}</p>
-                                <p>Updated {formatDistanceToNow(new Date(workUnit.updatedAt), { addSuffix: true })}</p>
+                                <p>Created {formatRelativeTime(workUnit.createdAt)}</p>
+                                <p>Updated {formatRelativeTime(workUnit.updatedAt)}</p>
                                 {workUnit.completedAt && (
-                                    <p>Completed {formatDistanceToNow(new Date(workUnit.completedAt), { addSuffix: true })}</p>
+                                    <p>Completed {formatRelativeTime(workUnit.completedAt)}</p>
                                 )}
                             </div>
                         </div>

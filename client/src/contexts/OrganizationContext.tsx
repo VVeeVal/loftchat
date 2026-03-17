@@ -1,14 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { api, APIError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
-
-export interface Organization {
-  id: string;
-  name: string;
-  description?: string;
-  role: 'ADMIN' | 'MEMBER';
-  joinedAt?: string;
-}
+import type { Organization } from '@/types/api';
 
 export interface OrganizationContextType {
   currentOrganization: Organization | null;

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
-import { useToast } from "@/hooks/use-toast";
 import { resolveAssetUrl } from "@/lib/assets";
 import MessageActions from "@/components/MessageActions";
 import ReactionDisplay from "@/components/ReactionDisplay";
@@ -35,7 +34,6 @@ export default function MessageList({
 }: MessageListProps) {
     const queryClient = useQueryClient();
     const { data: sessionData } = authClient.useSession();
-    const { toast } = useToast();
     const currentUserId = sessionData?.user?.id;
     const isDM = Boolean(sessionId);
 

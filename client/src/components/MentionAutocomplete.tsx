@@ -3,7 +3,7 @@ import { resolveAssetUrl } from "@/lib/assets";
 
 interface MentionUser {
     id: string;
-    name: string | null;
+    name?: string | null;
     email: string;
     image?: string | null;
 }

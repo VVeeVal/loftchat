@@ -21,6 +21,19 @@ import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '.
 
 export default async function channelRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireOrganization);
+
+  const channelMessageInclude = {
+    sender: true,
+    _count: { select: { replies: true } },
+    reactions: { include: { user: { select: { id: true, name: true } } } },
+    mentions: { include: { user: { select: { id: true, name: true } } } },
+    attachments: true
+  } as const;
+
+  const serializeChannelMessage = <T extends { reactions: any[] }>(message: T) => ({
+    ...message,
+    reactions: aggregateReactions(message.reactions)
+  });
   // List Channels with Unread Counts
   app.get<{ Querystring: { includeArchived?: string } }>('/channels', async (req, res) => {
     const user = (req as AuthenticatedRequest).user;
@@ -228,26 +241,16 @@ export default async function channelRoutes(app: FastifyInstance) {
       take: 50,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
-      orderBy: { createdAt: 'asc' },
-      include: {
-        sender: true,
-        _count: { select: { replies: true } },
-        reactions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        mentions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        attachments: true
-      }
+      orderBy: { createdAt: 'desc' },
+      include: channelMessageInclude
     });
 
-    const messagesWithAggregatedReactions = messages.map((message) => ({
-      ...message,
-      reactions: aggregateReactions(message.reactions)
-    }));
+    const messagesWithAggregatedReactions = messages
+      .slice()
+      .reverse()
+      .map(serializeChannelMessage);
 
-    return { channel, messages: messagesWithAggregatedReactions.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()) };
+    return { channel, messages: messagesWithAggregatedReactions };
   });
 
   // Get Pinned Messages
@@ -259,23 +262,10 @@ export default async function channelRoutes(app: FastifyInstance) {
     const messages = await prisma.message.findMany({
       where: { channelId: id, isPinned: true, threadId: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        sender: true,
-        _count: { select: { replies: true } },
-        reactions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        mentions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        attachments: true
-      }
+      include: channelMessageInclude
     });
 
-    const messagesWithAggregatedReactions = messages.map((message) => ({
-      ...message,
-      reactions: aggregateReactions(message.reactions)
-    }));
+    const messagesWithAggregatedReactions = messages.map(serializeChannelMessage);
 
     return messagesWithAggregatedReactions;
   });
@@ -298,19 +288,10 @@ export default async function channelRoutes(app: FastifyInstance) {
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: { isPinned: isPinned ?? !message.isPinned },
-      include: {
-        sender: true,
-        _count: { select: { replies: true } },
-        reactions: { include: { user: { select: { id: true, name: true } } } },
-        mentions: { include: { user: { select: { id: true, name: true } } } },
-        attachments: true
-      }
+      include: channelMessageInclude
     });
 
-    return {
-      ...updated,
-      reactions: aggregateReactions(updated.reactions)
-    };
+    return serializeChannelMessage(updated);
   });
 
   // Send Message (Support Threading)
@@ -324,6 +305,24 @@ export default async function channelRoutes(app: FastifyInstance) {
 
     const mentionedNames = parseMentions(content);
     const mentionedUsers = await findUsersByNames(mentionedNames, orgContext.organizationId);
+    let parentMessageId: string | null = null;
+
+    if (threadId) {
+      const parentMessage = await prisma.message.findFirst({
+        where: {
+          id: threadId,
+          channelId: id,
+          threadId: null
+        },
+        select: { id: true }
+      });
+
+      if (!parentMessage) {
+        throw new BadRequestError('Invalid thread parent');
+      }
+
+      parentMessageId = parentMessage.id;
+    }
 
     const uploadIds = attachments
       .map((attachment) => attachment.uploadId)
@@ -352,7 +351,7 @@ export default async function channelRoutes(app: FastifyInstance) {
         content,
         channelId: id,
         senderId: user.id,
-        threadId: threadId || null,
+        threadId: parentMessageId,
         mentions: {
           create: mentionedUsers.map((mentionedUser) => ({ userId: mentionedUser.id }))
         },
@@ -389,14 +388,21 @@ export default async function channelRoutes(app: FastifyInstance) {
       }
     });
 
-    if (threadId) {
-      await prisma.message.update({
-        where: { id: threadId },
+    if (parentMessageId) {
+      const updatedParent = await prisma.message.update({
+        where: { id: parentMessageId },
         data: {
           replyCount: { increment: 1 },
           updatedAt: new Date()
-        }
+        },
+        include: channelMessageInclude
       });
+
+      await prisma.$executeRaw`SELECT pg_notify('channel_events', ${JSON.stringify({
+        type: 'UPDATE',
+        channelId: id,
+        message: serializeChannelMessage(updatedParent)
+      })})`;
     }
 
     const messageWithReactions = { ...message, reactions: [] };
@@ -596,10 +602,17 @@ export default async function channelRoutes(app: FastifyInstance) {
     }
 
     if (message.threadId) {
-      await prisma.message.update({
+      const updatedParent = await prisma.message.update({
         where: { id: message.threadId },
-        data: { replyCount: { decrement: 1 } }
+        data: { replyCount: { decrement: 1 } },
+        include: channelMessageInclude
       });
+
+      await prisma.$executeRaw`SELECT pg_notify('channel_events', ${JSON.stringify({
+        type: 'UPDATE',
+        channelId,
+        message: serializeChannelMessage(updatedParent)
+      })})`;
     }
 
     await prisma.message.delete({ where: { id: messageId } });
@@ -607,7 +620,8 @@ export default async function channelRoutes(app: FastifyInstance) {
     await prisma.$executeRaw`SELECT pg_notify('channel_events', ${JSON.stringify({
       type: 'DELETE',
       channelId,
-      messageId
+      messageId,
+      threadId: message.threadId
     })})`;
 
     return { success: true };

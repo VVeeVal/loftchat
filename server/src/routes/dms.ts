@@ -20,6 +20,27 @@ import { BadRequestError, ForbiddenError, NotFoundError } from '../errors/app-er
 
 export default async function dmRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireOrganization);
+
+  const dmMessageInclude = {
+    sender: { select: { id: true, name: true, email: true, image: true } },
+    _count: { select: { replies: true } },
+    reactions: { include: { user: { select: { id: true, name: true } } } },
+    mentions: { include: { user: { select: { id: true, name: true } } } },
+    attachments: true
+  } as const;
+
+  const serializeDMMessage = <
+    T extends { createdAt: Date; reactions: any[] }
+  >(
+    message: T,
+    participants: Array<{ userId: string; lastReadAt: Date }>
+  ) => ({
+    ...message,
+    readBy: participants
+      .filter((participant) => participant.lastReadAt >= message.createdAt)
+      .map((participant) => participant.userId),
+    reactions: aggregateReactions(message.reactions)
+  });
   // List DM Sessions with Unread
   app.get<{ Querystring: { includeArchived?: string } }>('/dms', async (req, res) => {
     const user = (req as AuthenticatedRequest).user;
@@ -97,7 +118,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
     const participant = await prisma.dMParticipant.update({
       where: { sessionId_userId: { sessionId: id, userId: user.id } },
-      update: { isStarred }
+      data: { isStarred }
     });
     return participant;
   });
@@ -112,7 +133,7 @@ export default async function dmRoutes(app: FastifyInstance) {
 
     const participant = await prisma.dMParticipant.update({
       where: { sessionId_userId: { sessionId: id, userId: user.id } },
-      update: { notificationPreference: preference }
+      data: { notificationPreference: preference }
     });
     return participant;
   });
@@ -225,18 +246,8 @@ export default async function dmRoutes(app: FastifyInstance) {
       take: 50,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
-      orderBy: { createdAt: 'asc' },
-      include: {
-        sender: { select: { id: true, name: true, email: true, image: true } },
-        _count: { select: { replies: true } },
-        reactions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        mentions: {
-          include: { user: { select: { id: true, name: true } } }
-        },
-        attachments: true
-      }
+      orderBy: { createdAt: 'desc' },
+      include: dmMessageInclude
     });
 
     const readByLookup = new Map<string, string[]>();
@@ -247,11 +258,14 @@ export default async function dmRoutes(app: FastifyInstance) {
       readByLookup.set(message.id, readBy);
     }
 
-    const messagesWithAggregatedReactions = messages.map((message) => ({
-      ...message,
-      readBy: readByLookup.get(message.id) || [],
-      reactions: aggregateReactions(message.reactions)
-    }));
+    const messagesWithAggregatedReactions = messages
+      .slice()
+      .reverse()
+      .map((message) => ({
+        ...message,
+        readBy: readByLookup.get(message.id) || [],
+        reactions: aggregateReactions(message.reactions)
+      }));
 
     return { session, messages: messagesWithAggregatedReactions };
   });
@@ -274,19 +288,15 @@ export default async function dmRoutes(app: FastifyInstance) {
     const messages = await prisma.dMMessage.findMany({
       where: { sessionId: id, isPinned: true, threadId: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        sender: { select: { id: true, name: true, email: true, image: true } },
-        _count: { select: { replies: true } },
-        reactions: { include: { user: { select: { id: true, name: true } } } },
-        mentions: { include: { user: { select: { id: true, name: true } } } },
-        attachments: true
-      }
+      include: dmMessageInclude
     });
 
-    return messages.map((message) => ({
-      ...message,
-      reactions: aggregateReactions(message.reactions)
-    }));
+    const participants = await prisma.dMParticipant.findMany({
+      where: { sessionId: id },
+      select: { userId: true, lastReadAt: true }
+    });
+
+    return messages.map((message) => serializeDMMessage(message, participants));
   });
 
   // Pin/Unpin DM Message
@@ -316,19 +326,15 @@ export default async function dmRoutes(app: FastifyInstance) {
     const updated = await prisma.dMMessage.update({
       where: { id: messageId },
       data: { isPinned: isPinned ?? !message.isPinned },
-      include: {
-        sender: { select: { id: true, name: true, email: true, image: true } },
-        _count: { select: { replies: true } },
-        reactions: { include: { user: { select: { id: true, name: true } } } },
-        mentions: { include: { user: { select: { id: true, name: true } } } },
-        attachments: true
-      }
+      include: dmMessageInclude
     });
 
-    return {
-      ...updated,
-      reactions: aggregateReactions(updated.reactions)
-    };
+    const participants = await prisma.dMParticipant.findMany({
+      where: { sessionId },
+      select: { userId: true, lastReadAt: true }
+    });
+
+    return serializeDMMessage(updated, participants);
   });
 
   // Send DM Message (Threading Support)
@@ -349,6 +355,24 @@ export default async function dmRoutes(app: FastifyInstance) {
 
     const mentionedNames = parseMentions(content);
     const mentionedUsers = await findUsersByNames(mentionedNames, orgContext.organizationId);
+    let parentMessageId: string | null = null;
+
+    if (threadId) {
+      const parentMessage = await prisma.dMMessage.findFirst({
+        where: {
+          id: threadId,
+          sessionId: id,
+          threadId: null
+        },
+        select: { id: true }
+      });
+
+      if (!parentMessage) {
+        throw new BadRequestError('Invalid thread parent');
+      }
+
+      parentMessageId = parentMessage.id;
+    }
 
     const uploadIds = attachments
       .map((attachment) => attachment.uploadId)
@@ -377,7 +401,7 @@ export default async function dmRoutes(app: FastifyInstance) {
         content,
         sessionId: id,
         senderId: user.id,
-        threadId: threadId || null,
+        threadId: parentMessageId,
         mentions: {
           create: mentionedUsers.map((mentionedUser) => ({ userId: mentionedUser.id }))
         },
@@ -414,20 +438,28 @@ export default async function dmRoutes(app: FastifyInstance) {
       }
     });
 
-    if (threadId) {
-      await prisma.dMMessage.update({
-        where: { id: threadId },
+    const participants = await prisma.dMParticipant.findMany({
+      where: { sessionId: id },
+      select: { userId: true, lastReadAt: true }
+    });
+
+    if (parentMessageId) {
+      const updatedParent = await prisma.dMMessage.update({
+        where: { id: parentMessageId },
         data: {
           replyCount: { increment: 1 },
-        }
+        },
+        include: dmMessageInclude
       });
+
+      await prisma.$executeRaw`SELECT pg_notify('dm_events', ${JSON.stringify({
+        type: 'UPDATE',
+        sessionId: id,
+        message: serializeDMMessage(updatedParent, participants)
+      })})`;
     }
 
     const messageWithReactions = { ...message, readBy: [user.id], reactions: [] };
-    const participants = await prisma.dMParticipant.findMany({
-      where: { sessionId: id },
-      select: { userId: true }
-    });
 
     await prisma.$executeRaw`SELECT pg_notify('dm_events', ${JSON.stringify({
       type: 'INSERT',
@@ -576,10 +608,22 @@ export default async function dmRoutes(app: FastifyInstance) {
     }
 
     if (message.threadId) {
-      await prisma.dMMessage.update({
-        where: { id: message.threadId },
-        data: { replyCount: { decrement: 1 } }
+      const participants = await prisma.dMParticipant.findMany({
+        where: { sessionId },
+        select: { userId: true, lastReadAt: true }
       });
+
+      const updatedParent = await prisma.dMMessage.update({
+        where: { id: message.threadId },
+        data: { replyCount: { decrement: 1 } },
+        include: dmMessageInclude
+      });
+
+      await prisma.$executeRaw`SELECT pg_notify('dm_events', ${JSON.stringify({
+        type: 'UPDATE',
+        sessionId,
+        message: serializeDMMessage(updatedParent, participants)
+      })})`;
     }
 
     await prisma.dMMessage.delete({ where: { id: messageId } });
@@ -587,7 +631,8 @@ export default async function dmRoutes(app: FastifyInstance) {
     await prisma.$executeRaw`SELECT pg_notify('dm_events', ${JSON.stringify({
       type: 'DELETE',
       sessionId,
-      messageId
+      messageId,
+      threadId: message.threadId
     })})`;
 
     return { success: true };

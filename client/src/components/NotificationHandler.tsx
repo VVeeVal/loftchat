@@ -5,13 +5,15 @@ import { authClient } from '@/lib/auth-client';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useNotifications, registerNotificationHandler } from '@/hooks/useNotifications';
 import { api, API_URL } from '@/lib/api-client';
-import type { Channel, DMSession, NotificationPreference } from '@/types/api';
+import type { Channel, DMMessage, DMSession, Message, NotificationPreference } from '@/types/api';
 
 const WS_URL = API_URL.replace('http', 'ws') + '/ws';
+type NotifiableMessage = Message | DMMessage;
+type MessageMention = { userId?: string; user?: { id?: string } };
 
 function shouldNotify(
     preference: NotificationPreference | undefined,
-    message: any,
+    message: NotifiableMessage | undefined,
     currentUserId: string
 ): boolean {
     if (!preference) return true;
@@ -19,12 +21,13 @@ function shouldNotify(
     switch (preference) {
         case 'MUTE':
             return false;
-        case 'MENTIONS':
+        case 'MENTIONS': {
             // Check if current user is mentioned in the message
-            const mentions = message?.mentions || [];
-            return mentions.some((mention: any) =>
+            const mentions = (message?.mentions ?? []) as MessageMention[];
+            return mentions.some((mention) =>
                 mention.userId === currentUserId || mention.user?.id === currentUserId
             );
+        }
         case 'ALL':
         default:
             return true;
@@ -39,7 +42,7 @@ export function NotificationHandler() {
     const currentUserId = sessionData?.user?.id;
     const { currentOrganization } = useOrganization();
     const organizationId = currentOrganization?.id;
-    const { showNotification, requestPermission, permission } = useNotifications();
+    const { showNotification } = useNotifications();
     const socketRef = useRef<WebSocket | null>(null);
 
     // Fetch channels and DMs for notification preferences
@@ -80,17 +83,6 @@ export function NotificationHandler() {
             });
         }
     }, [dms]);
-
-    // Request notification permission on first load if not already granted/denied
-    useEffect(() => {
-        if (permission === 'default') {
-            // Delay the permission request to not be intrusive
-            const timer = setTimeout(() => {
-                requestPermission();
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [permission, requestPermission]);
 
     // Register the notification handler
     useEffect(() => {
@@ -218,7 +210,7 @@ export function NotificationHandler() {
                     queryClient.invalidateQueries({ queryKey: ['channels'] });
                     queryClient.invalidateQueries({ queryKey: ['dms'] });
                 }
-            } catch (e) {
+            } catch {
                 // Ignore parse errors
             }
         };

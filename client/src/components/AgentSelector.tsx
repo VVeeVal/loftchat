@@ -3,10 +3,11 @@ import { X, Plus, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api-client";
 import type { BotUser, WorkUnitAgent } from "@/types/api";
 
@@ -50,21 +51,21 @@ export function AgentSelector({ workUnitId, assignedAgents, isOwner }: AgentSele
             <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Assigned Agents</h4>
                 {isOwner && unassignedAgents.length > 0 && (
-                    <Popover>
-                        <PopoverTrigger asChild>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-7 px-2">
                                 <Plus className="h-4 w-4 mr-1" />
                                 Add
                             </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-2" align="end">
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-64 p-2" align="end">
                             <div className="space-y-1">
                                 {unassignedAgents.map((agent: BotUser) => (
-                                    <button
+                                    <DropdownMenuItem
                                         key={agent.id}
                                         onClick={() => assignMutation.mutate(agent.id)}
                                         disabled={assignMutation.isPending}
-                                        className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left transition-colors"
+                                        className="flex items-center gap-2 p-2"
                                     >
                                         <Avatar className="h-8 w-8">
                                             <AvatarImage src={agent.app?.iconUrl || undefined} />
@@ -78,11 +79,11 @@ export function AgentSelector({ workUnitId, assignedAgents, isOwner }: AgentSele
                                                 {agent.app?.name}
                                             </p>
                                         </div>
-                                    </button>
+                                    </DropdownMenuItem>
                                 ))}
                             </div>
-                        </PopoverContent>
-                    </Popover>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
             </div>
 

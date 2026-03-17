@@ -5,15 +5,6 @@ import { Loader2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { resolveAssetUrl } from '@/lib/assets';
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  image: string | null;
-  isAdmin: boolean;
-  createdAt: string;
-}
-
 interface UserManagementSectionProps {
   onResetPassword: (userId: string, userName: string) => void;
 }

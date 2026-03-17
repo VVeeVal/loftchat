@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api-client";
 import { WorkUnitPanel } from "@/components/WorkUnitPanel";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import type { WorkUnit, WorkUnitStatus } from "@/types/api";
 
 const statusConfig: Record<WorkUnitStatus, { label: string; icon: React.ReactNode; color: string }> = {
@@ -68,6 +69,12 @@ export default function WorkUnits() {
     };
 
     return (
+        <RouteErrorBoundary
+            title="Work units failed to render"
+            description="One of the work unit views crashed while opening. Close the current selection and try again."
+            resetKey={selectedId}
+            onReset={handleClose}
+        >
         <div className="flex h-full">
             {/* Main List */}
             <div className="flex-1 flex flex-col min-w-0">
@@ -196,5 +203,6 @@ export default function WorkUnits() {
                 />
             )}
         </div>
+        </RouteErrorBoundary>
     );
 }

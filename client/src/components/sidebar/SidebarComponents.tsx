@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -39,18 +40,17 @@ interface SidebarItemProps {
     isActive?: boolean;
     onClick: () => void;
     unreadCount?: number;
-    isStarred?: boolean;
+    to?: string;
 }
 
-export function SidebarItem({ icon, label, isActive, onClick, unreadCount, isStarred }: SidebarItemProps) {
-    return (
-        <button
-            onClick={onClick}
-            className={`w-full flex items-center px-4 py-1.5 text-sm transition-all group rounded-r-lg mr-2 ${isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-sidebar-text hover:bg-sidebar-hover"
-                }`}
-        >
+export function SidebarItem({ icon, label, isActive, onClick, unreadCount, to }: SidebarItemProps) {
+    const className = `w-full flex items-center px-4 py-1.5 text-sm transition-all group rounded-r-lg mr-2 ${isActive
+        ? "bg-primary text-primary-foreground shadow-sm"
+        : "text-sidebar-text hover:bg-sidebar-hover"
+    }`;
+
+    const content = (
+        <>
             <span className={`mr-2 transition-colors ${isActive ? "text-primary-foreground" : "text-sidebar-text-muted group-hover:text-sidebar-text"}`}>
                 {icon}
             </span>
@@ -62,6 +62,24 @@ export function SidebarItem({ icon, label, isActive, onClick, unreadCount, isSta
                     {unreadCount}
                 </span>
             )}
+        </>
+    );
+
+    if (to) {
+        return (
+            <Link to={to} onClick={onClick} className={className}>
+                {content}
+            </Link>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={className}
+        >
+            {content}
         </button>
     );
 }

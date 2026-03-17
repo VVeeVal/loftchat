@@ -90,6 +90,73 @@ export function useChatSocket(channelId?: string, sessionId?: string, currentUse
                 });
             };
 
+            const updateThreadMessages = (
+                scope: 'thread' | 'dm_thread',
+                conversationId: string | undefined,
+                threadId: string,
+                updater: (messages: any[]) => any[]
+            ) => {
+                if (!conversationId) return;
+                queryClient.setQueryData([scope, conversationId, threadId], (old: any) => {
+                    if (!old) return old;
+                    return { ...old, messages: updater(old.messages || []) };
+                });
+            };
+
+            const updateAllThreadMessages = (
+                scope: 'thread' | 'dm_thread',
+                conversationId: string | undefined,
+                updater: (messages: any[]) => any[]
+            ) => {
+                if (!conversationId) return;
+                const queries = queryClient.getQueryCache().getAll();
+
+                for (const query of queries) {
+                    const queryKey = query.queryKey;
+                    if (!Array.isArray(queryKey)) continue;
+                    if (queryKey[0] !== scope || queryKey[1] !== conversationId) continue;
+
+                    queryClient.setQueryData(queryKey, (old: any) => {
+                        if (!old) return old;
+                        return { ...old, messages: updater(old.messages || []) };
+                    });
+                }
+            };
+
+            const appendUniqueMessage = (messages: any[], newMessage: any) => {
+                if (messages.find((message: any) => message.id === newMessage.id)) {
+                    return messages;
+                }
+
+                return [...messages, newMessage].sort(
+                    (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                );
+            };
+
+            const updateParentReplyCount = (
+                updateMainMessages: (updater: (messages: any[]) => any[]) => void,
+                parentId: string,
+                delta: number
+            ) => {
+                updateMainMessages((messages) =>
+                    messages.map((message: any) => {
+                        if (message.id !== parentId) return message;
+                        const currentReplies = typeof message._count?.replies === 'number'
+                            ? message._count.replies
+                            : (typeof message.replyCount === 'number' ? message.replyCount : 0);
+
+                        return {
+                            ...message,
+                            _count: {
+                                ...(message._count || {}),
+                                replies: Math.max(0, currentReplies + delta),
+                            },
+                            replyCount: Math.max(0, currentReplies + delta),
+                        };
+                    })
+                );
+            };
+
             const buildLabel = (users: TypingUser[]) => {
                 if (users.length === 0) return '';
                 if (users.length === 1) return `${users[0].name} is typing...`;
@@ -128,9 +195,16 @@ export function useChatSocket(channelId?: string, sessionId?: string, currentUse
 
                     // Handle Channel Messages
                     if (payload.type === 'INSERT' && channelId && payload.channelId === channelId) {
+                        const newMessage = payload.message;
+                        if (newMessage?.threadId) {
+                            updateThreadMessages('thread', channelId, newMessage.threadId, (messages) =>
+                                appendUniqueMessage(messages, newMessage)
+                            );
+                            updateParentReplyCount(updateChannelMessages, newMessage.threadId, 1);
+                            return;
+                        }
+
                         updateChannelMessages((messages) => {
-                            const newMessage = payload.message;
-                            if (newMessage?.threadId) return messages;
                             const exists = messages.find((m: any) => m.id === newMessage.id);
                             if (exists) return messages;
                             return [...messages, newMessage];
@@ -139,9 +213,16 @@ export function useChatSocket(channelId?: string, sessionId?: string, currentUse
 
                     // Handle DM Messages
                     if (payload.type === 'INSERT' && sessionId && payload.sessionId === sessionId) {
+                        const newMessage = payload.message;
+                        if (newMessage?.threadId) {
+                            updateThreadMessages('dm_thread', sessionId, newMessage.threadId, (messages) =>
+                                appendUniqueMessage(messages, newMessage)
+                            );
+                            updateParentReplyCount(updateDMMessages, newMessage.threadId, 1);
+                            return;
+                        }
+
                         updateDMMessages((messages) => {
-                            const newMessage = payload.message;
-                            if (newMessage?.threadId) return messages;
                             const exists = messages.find((m: any) => m.id === newMessage.id);
                             if (exists) return messages;
                             return [...messages, newMessage];
@@ -152,21 +233,43 @@ export function useChatSocket(channelId?: string, sessionId?: string, currentUse
                         updateChannelMessages((messages) =>
                             messages.map((message: any) => message.id === payload.message.id ? payload.message : message)
                         );
+                        if (payload.message?.threadId) {
+                            updateThreadMessages('thread', channelId, payload.message.threadId, (messages) =>
+                                messages.map((message: any) => message.id === payload.message.id ? payload.message : message)
+                            );
+                        }
                     }
 
                     if (payload.type === 'UPDATE' && sessionId && payload.sessionId === sessionId) {
                         updateDMMessages((messages) =>
                             messages.map((message: any) => message.id === payload.message.id ? payload.message : message)
                         );
+                        if (payload.message?.threadId) {
+                            updateThreadMessages('dm_thread', sessionId, payload.message.threadId, (messages) =>
+                                messages.map((message: any) => message.id === payload.message.id ? payload.message : message)
+                            );
+                        }
                     }
 
                     if (payload.type === 'DELETE' && channelId && payload.channelId === channelId) {
+                        if (payload.threadId) {
+                            updateThreadMessages('thread', channelId, payload.threadId, (messages) =>
+                                messages.filter((message: any) => message.id !== payload.messageId)
+                            );
+                            updateParentReplyCount(updateChannelMessages, payload.threadId, -1);
+                        }
                         updateChannelMessages((messages) =>
                             messages.filter((message: any) => message.id !== payload.messageId)
                         );
                     }
 
                     if (payload.type === 'DELETE' && sessionId && payload.sessionId === sessionId) {
+                        if (payload.threadId) {
+                            updateThreadMessages('dm_thread', sessionId, payload.threadId, (messages) =>
+                                messages.filter((message: any) => message.id !== payload.messageId)
+                            );
+                            updateParentReplyCount(updateDMMessages, payload.threadId, -1);
+                        }
                         updateDMMessages((messages) =>
                             messages.filter((message: any) => message.id !== payload.messageId)
                         );
@@ -176,10 +279,16 @@ export function useChatSocket(channelId?: string, sessionId?: string, currentUse
                         updateChannelMessages((messages) =>
                             messages.map((message: any) => message.id === payload.messageId ? { ...message, reactions: payload.reactions } : message)
                         );
+                        updateAllThreadMessages('thread', channelId, (messages) =>
+                            messages.map((message: any) => message.id === payload.messageId ? { ...message, reactions: payload.reactions } : message)
+                        );
                     }
 
                     if (payload.type === 'REACTION' && sessionId && payload.sessionId === sessionId) {
                         updateDMMessages((messages) =>
+                            messages.map((message: any) => message.id === payload.messageId ? { ...message, reactions: payload.reactions } : message)
+                        );
+                        updateAllThreadMessages('dm_thread', sessionId, (messages) =>
                             messages.map((message: any) => message.id === payload.messageId ? { ...message, reactions: payload.reactions } : message)
                         );
                     }

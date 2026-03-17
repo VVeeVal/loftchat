@@ -11,7 +11,7 @@ const STORAGE_KEY = 'loft-input-settings';
 
 const defaultSettings: InputSettings = {
     codeBlockEnterPrevents: false,
-    enterBehavior: 'send',
+    enterBehavior: 'newline',
 };
 
 let listeners: Set<() => void> = new Set();

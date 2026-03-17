@@ -60,11 +60,18 @@ export interface Message {
 
 export interface DMSession {
   id: string;
-  participants?: unknown[];
+  participants?: DMSessionParticipant[];
   isArchived?: boolean;
   unreadCount?: number;
   isStarred?: boolean;
   notificationPreference?: NotificationPreference;
+  [key: string]: unknown;
+}
+
+export interface DMSessionParticipant {
+  userId: string;
+  notificationPreference?: NotificationPreference;
+  user?: User;
   [key: string]: unknown;
 }
 
@@ -132,6 +139,17 @@ export interface Organization {
   description?: string | null;
   role?: 'ADMIN' | 'MEMBER';
   joinedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RegistrationLink {
+  id: string;
+  registrationUrl: string;
+  isUsed: boolean;
+  usageLimit?: number | null;
+  usageCount?: number | null;
+  createdAt?: string;
+  expiresAt?: string | null;
   [key: string]: unknown;
 }
 

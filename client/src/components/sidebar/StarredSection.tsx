@@ -25,7 +25,6 @@ export function StarredSection({ starredChannels, starredDms, currentUserId, act
                         label={c.name}
                         isActive={activeChannelId === c.id}
                         onClick={() => onNavigate?.()}
-                        isStarred={true}
                     />
                 </Link>
             ))}
@@ -38,7 +37,6 @@ export function StarredSection({ starredChannels, starredDms, currentUserId, act
                             label={other?.name || other?.email || "Unknown"}
                             isActive={activeSessionId === dm.id}
                             onClick={() => onNavigate?.()}
-                            isStarred={true}
                         />
                     </Link>
                 );

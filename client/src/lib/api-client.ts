@@ -9,6 +9,7 @@ import type {
   DMSession,
   Message,
   Organization,
+  RegistrationLink,
   SearchResults,
   StorageInfo,
   Thread,
@@ -312,9 +313,9 @@ class APIClient {
   };
 
   registrationLinks = {
-    list: () => this.request('/registration-links'),
+    list: () => this.request<RegistrationLink[]>('/registration-links'),
     create: (data: { expiresInHours?: number; usageLimit?: number; allowUnlimited?: boolean } = {}) =>
-      this.request('/registration-links', {
+      this.request<RegistrationLink>('/registration-links', {
         method: 'POST',
         body: JSON.stringify(data),
       }),

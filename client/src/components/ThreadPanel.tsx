@@ -9,9 +9,9 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { api } from "@/lib/api-client";
 import { resolveAssetUrl } from "@/lib/assets";
 import ChatInput from "@/components/ChatInput";
-import MessageContent from "@/components/MessageContent";
 import AttachmentList from "@/components/AttachmentList";
-import type { Attachment } from "@/types/api";
+import MessageContent from "@/components/MessageContent";
+import type { Attachment, Channel, DMMessage, DMSession, Message } from "@/types/api";
 
 interface ThreadPanelProps {
     threadId: string;
@@ -22,6 +22,12 @@ interface ThreadPanelProps {
     typingLabel?: string;
     onTyping?: (isTyping: boolean) => void;
 }
+
+type ThreadData = {
+    messages: Array<Message | DMMessage>;
+    channel?: Channel;
+    session?: DMSession;
+};
 
 export default function ThreadPanel({
     threadId,
@@ -43,11 +49,14 @@ export default function ThreadPanel({
         return cached?.messages?.find((message: any) => message.id === threadId) || null;
     }, [channelId, queryClient, sessionId, threadId]);
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<ThreadData>({
         queryKey,
-        queryFn: () => channelId
-            ? api.channels.getThread(channelId, threadId)
-            : api.dms.getThread(sessionId!, threadId),
+        queryFn: async () => {
+            if (channelId) {
+                return api.channels.getThread(channelId, threadId);
+            }
+            return api.dms.getThread(sessionId!, threadId);
+        },
         refetchInterval: 3000 // Poll for now, or use socket if we wire it up
         // Note: Socket updates will insert into 'messages' cache, but maybe not specific 'thread' cache
         // We can rely on polling or improve socket logic later to update thread caches too.
@@ -111,7 +120,7 @@ export default function ThreadPanel({
         return () => clearTimeout(timeout);
     }, [highlightMessageId, data?.messages]);
 
-    const messages = data?.messages || [];
+    const messages = data?.messages ?? [];
     const { isMobile } = useMediaQuery();
 
     // Panel content (same for both mobile and desktop)

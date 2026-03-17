@@ -17,6 +17,7 @@ import { api } from "@/lib/api-client";
 import { Copy, Check } from "lucide-react";
 import { useCustomEmojis } from "@/hooks/useCustomEmojis";
 import { resolveAssetUrl } from "@/lib/assets";
+import type { RegistrationLink } from "@/types/api";
 
 interface WorkspaceSettingsDialogProps {
     isOpen: boolean;
@@ -102,7 +103,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    const isLinkExpired = (link: any) => {
+    const isLinkExpired = (link: RegistrationLink) => {
         if (!link.expiresAt) return false;
         return new Date(link.expiresAt) < new Date();
     };
@@ -193,7 +194,7 @@ export function WorkspaceSettingsDialog({ isOpen, onOpenChange }: WorkspaceSetti
                                 <h3 className="text-sm font-semibold">Registration Links</h3>
                                 {links && links.length > 0 ? (
                                     <div className="space-y-2">
-                                        {links.map((link: any) => {
+                                        {links.map((link) => {
                                             const expired = isLinkExpired(link);
                                             const isUsed = link.isUsed;
                                             const isCopied = copiedId === link.id;

@@ -1,10 +1,65 @@
 import { prisma } from '../db.js';
 
 export function parseMentions(content: string): string[] {
-  const mentionRegex = /@([A-Za-z0-9._-]+(?:\s+[A-Za-z0-9._-]+)*)/g;
-  const matches = content.match(mentionRegex);
-  if (!matches) return [];
-  return [...new Set(matches.map((match) => match.slice(1).trim()))];
+  const mentions: string[] = [];
+  const isTokenChar = (char: string) => /[A-Za-z0-9._-]/.test(char);
+  const isUppercaseStart = (char: string) => /[A-Z]/.test(char);
+
+  let index = 0;
+  while (index < content.length) {
+    if (content[index] !== '@') {
+      index += 1;
+      continue;
+    }
+
+    let cursor = index + 1;
+    if (!content[cursor] || !isTokenChar(content[cursor])) {
+      index += 1;
+      continue;
+    }
+
+    const tokens: string[] = [];
+    let shouldContinue = true;
+
+    while (shouldContinue) {
+      const tokenStart = cursor;
+      while (cursor < content.length && isTokenChar(content[cursor])) {
+        cursor += 1;
+      }
+
+      const rawToken = content.slice(tokenStart, cursor);
+      const token = rawToken.replace(/[.,!?;:]+$/, '');
+      const endedWithTerminalPunctuation = rawToken !== token;
+
+      if (!token) {
+        break;
+      }
+
+      tokens.push(token);
+      if (endedWithTerminalPunctuation) {
+        break;
+      }
+
+      let lookahead = cursor;
+      while (content[lookahead] === ' ') {
+        lookahead += 1;
+      }
+
+      if (!content[lookahead] || !isUppercaseStart(content[lookahead])) {
+        break;
+      }
+
+      cursor = lookahead;
+    }
+
+    if (tokens.length > 0) {
+      mentions.push(tokens.join(' '));
+    }
+
+    index = cursor;
+  }
+
+  return [...new Set(mentions)];
 }
 
 export async function findUsersByNames(names: string[], organizationId: string) {

@@ -21,7 +21,7 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-    const { isSupported, permission, isEnabled, canNotify, requestPermission, setEnabled, showNotification } = useNotifications();
+    const { isSupported, permission, isEnabled, canNotify, requestPermission, setEnabled } = useNotifications();
     const { settings, setCodeBlockEnterPrevents, setEnterBehavior } = useInputSettings();
 
     const handleEnableNotifications = async () => {
@@ -130,22 +130,33 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between rounded-lg bg-secondary/30 p-3">
-                                        <Label htmlFor="enter-behavior" className="text-sm font-medium">
-                                            {settings.enterBehavior === 'send'
-                                                ? 'Enter sends message'
-                                                : 'Enter inserts newline'}
+                                    <div className="rounded-lg bg-secondary/30 p-3 space-y-3">
+                                        <Label className="text-sm font-medium">
+                                            Send shortcut
                                         </Label>
-                                        <Switch
-                                            id="enter-behavior"
-                                            checked={settings.enterBehavior === 'send'}
-                                            onCheckedChange={(checked) => setEnterBehavior(checked ? 'send' : 'newline')}
-                                        />
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <Button
+                                                type="button"
+                                                variant={settings.enterBehavior === 'newline' ? 'default' : 'outline'}
+                                                className="justify-start"
+                                                onClick={() => setEnterBehavior('newline')}
+                                            >
+                                                Enter inserts newline
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={settings.enterBehavior === 'send' ? 'default' : 'outline'}
+                                                className="justify-start"
+                                                onClick={() => setEnterBehavior('send')}
+                                            >
+                                                Enter sends message
+                                            </Button>
+                                        </div>
                                     </div>
                                     <p className="text-xs text-muted-foreground">
                                         {settings.enterBehavior === 'send'
                                             ? 'Use Shift+Enter for a new line.'
-                                            : 'Use Ctrl+Enter or Cmd+Enter to send.'}
+                                            : 'Use Cmd+Enter or Ctrl+Enter to send.'}
                                     </p>
                                 </div>
 

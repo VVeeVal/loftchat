@@ -35,13 +35,6 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     // Persistent state
     const [channelsOpen, setChannelsOpen] = useState(() => localStorage.getItem("channelsOpen") !== "false");
     const [dmsOpen, setDmsOpen] = useState(() => localStorage.getItem("dmsOpen") !== "false");
-    const [starredOpen, setStarredOpen] = useState(() => localStorage.getItem("starredOpen") !== "false");
-
-    const toggleStarred = () => {
-        const newState = !starredOpen;
-        setStarredOpen(newState);
-        localStorage.setItem("starredOpen", String(newState));
-    };
 
     const toggleChannels = () => {
         const newState = !channelsOpen;
@@ -149,16 +142,6 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             queryClient.invalidateQueries({ queryKey: ['messages'] });
             queryClient.invalidateQueries({ queryKey: ['dm_messages'] });
         }
-    });
-
-    const starChannelMutation = useMutation({
-        mutationFn: ({ id, isStarred }: { id: string; isStarred: boolean }) => api.channels.star(id, isStarred),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] })
-    });
-
-    const starDMMutation = useMutation({
-        mutationFn: ({ id, isStarred }: { id: string; isStarred: boolean }) => api.dms.star(id, isStarred),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dms'] })
     });
 
     const handleLogout = async () => {

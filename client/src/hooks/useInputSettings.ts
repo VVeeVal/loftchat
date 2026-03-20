@@ -15,17 +15,28 @@ const defaultSettings: InputSettings = {
 };
 
 let listeners: Set<() => void> = new Set();
+let cachedSettings: InputSettings = defaultSettings;
+let hasLoadedFromStorage = false;
+
+function parseStoredSettings(stored: string | null): InputSettings {
+    if (!stored) {
+        return defaultSettings;
+    }
+
+    try {
+        return { ...defaultSettings, ...JSON.parse(stored) };
+    } catch {
+        return defaultSettings;
+    }
+}
 
 function getSnapshot(): InputSettings {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            return { ...defaultSettings, ...JSON.parse(stored) };
-        }
-    } catch {
-        // Ignore parse errors
+    if (!hasLoadedFromStorage && typeof window !== 'undefined') {
+        cachedSettings = parseStoredSettings(localStorage.getItem(STORAGE_KEY));
+        hasLoadedFromStorage = true;
     }
-    return defaultSettings;
+
+    return cachedSettings;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -43,6 +54,8 @@ export function useInputSettings() {
     const updateSettings = useCallback((updates: Partial<InputSettings>) => {
         const current = getSnapshot();
         const next = { ...current, ...updates };
+        cachedSettings = next;
+        hasLoadedFromStorage = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         emitChange();
     }, []);
